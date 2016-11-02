@@ -2,7 +2,25 @@
 \usepackage{iclr2017_conference,times}
 \usepackage{hyperref}
 \usepackage{url}
+% \usepackage[dvips]{graphicx}
 
+% from Exploring Policy Rep
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{newclude}
+\usepackage[normalem]{ulem}
+\usepackage{dsfont}
+
+\usepackage{subfigure}
+\newcommand{\R}{\mathbb{R}}
+\usepackage{changepage}
+\usepackage{graphicx}
+
+\usepackage{pdfpages}
+
+\usepackage{cancel}
 
 \title{Stochastic Neural Networks for \\Hierarchical Reinforcement Learning}
 
@@ -89,10 +107,21 @@ Our pre-training task is as unuspervised as it can be:
 
 \subsection{Hierarchical task: Maze Navigation}
 
-\begin{verbatim}
-   \usepackage[dvips]{graphicx} ...
-   \includegraphics[width=0.8\linewidth]{myfile.eps}
-\end{verbatim}
+\begin{figure}[h!]
+	\centering
+	\subfigure[Reward function of the point MDP]{
+		\centering
+		\label{fig:reward_func}
+		\includegraphics[width = 0.45\textwidth]{Figures/Maze0.png}
+	}
+	\subfigure[An example of non-multimodal without MIreward nor hallucinations]{
+		\centering
+		\label{fig:no_multimode_withoutMI}
+		\includegraphics[width = 0.45\textwidth]{Figures/Maze0.png}
+	}
+	\caption{Examples of performance and final policies learned by the SNN on the 2D and 4 modes point-MDP, with 1 latent Bernoulli variables.}
+	\label{fig:snn_multimodal_MI}
+\end{figure}
 
 \section{Results}
 

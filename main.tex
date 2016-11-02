@@ -109,21 +109,59 @@ Our pre-training task is as unuspervised as it can be:
 
 \begin{figure}[h!]
 	\centering
-	\subfigure[Reward function of the point MDP]{
+	\subfigure[Maze0]{
 		\centering
-		\label{fig:reward_func}
-		\includegraphics[width = 0.45\textwidth]{Figures/Maze0.png}
+		\label{fig:Maze0}
+		\includegraphics[width = 0.2\textwidth]{Figures/Maze0.png}
 	}
-	\subfigure[An example of non-multimodal without MIreward nor hallucinations]{
+	\subfigure[Maze10]{
 		\centering
-		\label{fig:no_multimode_withoutMI}
-		\includegraphics[width = 0.45\textwidth]{Figures/Maze0.png}
+		\label{fig:Maze10}
+		\includegraphics[width = 0.2\textwidth]{Figures/Maze10.png}
+	}
+	\subfigure[Maze4 or 6]{
+		\centering
+		\label{fig:Maze4}
+		\includegraphics[width = 0.2\textwidth]{Figures/Maze4.png}
+	}
+	\subfigure[Food Gather]{
+		\centering
+		\label{fig:FoodGather}
+		\includegraphics[width = 0.2\textwidth]{Figures/FoodGatherAnt.png}
 	}
 	\caption{Examples of performance and final policies learned by the SNN on the 2D and 4 modes point-MDP, with 1 latent Bernoulli variables.}
 	\label{fig:snn_multimodal_MI}
 \end{figure}
 
+
 \section{Results}
+
+\subsection{Skill learning}
+
+There are different ways of advancing and with a general enough reward, every random seed will learn a different way of doing so.
+
+\begin{figure}[h]
+	\centering
+	\subfigure[TRPO on regular NN]{
+		\centering
+		\label{fig:visit_trpo6}
+	    \includegraphics[width=0.4\textwidth]{Figures/visit_trpo6.png}
+	}
+	\subfigure[SNN with bilinear integration]{
+		\centering
+		\label{fig:visit_snn6}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn_NoBil.png}
+	}
+	\subfigure[SNN with bilinear integration]{
+		\centering
+		\label{fig:visit_snn6}
+		\includegraphics[width = 0.4\textwidth]{Figures/Maze10.png}
+	}
+	\caption{Span of skills learn by different methods and architectures}
+	\label{fig:MI_reward}
+\end{figure}
+
+Nevertheless, training them by separate does not encourage any kind of diversity so it's doubly inefficient because we train $n$ policies and they are not guaranteed to be different. So we propose to solve the pre-train task with a SNN and we get a span o skills.
 
 \section{Conclusions}
 

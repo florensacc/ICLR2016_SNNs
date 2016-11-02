@@ -101,6 +101,12 @@ The usual Stochastic Feedforward Neural Networks were first described by \citet{
 \subsection{Entropy Penalty to encourage skill diversity}
 
 \section{Experiments}
+The final goal is to solve complex tasks with sparse rewards. Hence we propose the following environments:
+\begin{itemize}
+    \item several Maze task, see Fig. XX-YY
+    \item food gather, see fig XX
+\end{itemize}
+
 
 \subsection{Pre-training task: Learning to move}
 Our pre-training task is as unuspervised as it can be: 
@@ -147,7 +153,12 @@ There are different ways of advancing and with a general enough reward, every ra
 		\label{fig:visit_trpo6}
 	    \includegraphics[width=0.4\textwidth]{Figures/visit_trpo6.png}
 	}
-	\subfigure[SNN with bilinear integration]{
+	\subfigure[TRPO on regular NN]{
+		\centering
+		\label{fig:visit_trpo6_likeSNN}
+	    \includegraphics[width=0.4\textwidth]{Figures/XX.png}
+	}
+	\subfigure[SNN without bilinear integration]{
 		\centering
 		\label{fig:visit_snn6}
 		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn_NoBil.png}
@@ -155,13 +166,61 @@ There are different ways of advancing and with a general enough reward, every ra
 	\subfigure[SNN with bilinear integration]{
 		\centering
 		\label{fig:visit_snn6}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn6.png}
+	}
+	\subfigure[SNN with Hbonus integration]{
+		\centering
+		\label{fig:visit_snn6_HB}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn_HB.png}
 	}
 	\caption{Span of skills learn by different methods and architectures}
-	\label{fig:MI_reward}
+	\label{fig:visit_methods}
 \end{figure}
 
 Nevertheless, training them by separate does not encourage any kind of diversity so it's doubly inefficient because we train $n$ policies and they are not guaranteed to be different. So we propose to solve the pre-train task with a SNN and we get a span o skills.
+
+\begin{figure}[h]
+	\centering
+	\subfigure[TRPO on regular NN]{
+		\centering
+		\label{fig:visit_snn6_HB_varyCoef}
+	    \includegraphics[width=0.4\textwidth]{Figures/visit_snn_HB_varyCoef.png}
+	}
+	\caption{Span of skills learn by different methods and architectures}
+	\label{fig:visit_more}
+\end{figure}
+
+\subsection{Use the skills for better exploration}
+Using the setup described above, we can train in the complex navigation tasks, and only train the part of the policies where the actions are now discrete (Selector Network).
+
+First let's evaluate outside the mazes what will the exploration look like.
+
+\begin{figure}[h!]
+	\centering
+	\subfigure[Maze0]{
+		\centering
+		\label{fig:Maze0}
+		\includegraphics[width = 0.2\textwidth]{Figures/Maze0.png}
+	}
+	\subfigure[Maze10]{
+		\centering
+		\label{fig:Maze10}
+		\includegraphics[width = 0.2\textwidth]{Figures/Maze10.png}
+	}
+	\subfigure[Maze4 or 6]{
+		\centering
+		\label{fig:Maze4}
+		\includegraphics[width = 0.2\textwidth]{Figures/Maze4.png}
+	}
+	\subfigure[Food Gather]{
+		\centering
+		\label{fig:FoodGather}
+		\includegraphics[width = 0.2\textwidth]{Figures/FoodGatherAnt.png}
+	}
+	\caption{Examples of performance and final policies learned by the SNN on the 2D and 4 modes point-MDP, with 1 latent Bernoulli variables.}
+	\label{fig:snn_multimodal_MI}
+\end{figure}
+
 
 \section{Conclusions}
 

@@ -68,20 +68,21 @@ To tackle this issue/challenge there are two main approaches and in this paper w
 
 it is common to provide a specific abstraction of the problem.
 
-\section{Methodology}
+Furthermore, interested in performing well in new environments without much experience in it. This is concretized in the following problem statement.
 
-\subsection{Preliminaries}
+% Words from ICLR call for papers:
+% - Unsupervised
+% - Representation learning for planning and reinforcement learning
+% - Hierarchical models
+% - application to robotics
+
+
+\section{Preliminaries}
+\subsection{MDP}
 \begin{itemize}
     \item describe MDP?
-    \item introduce learning agent-centric skills
     \item introduce "intrinsic rewards" (COM speed)
 \end{itemize}
-
-Words from ICLR call for papers:
-- Unsupervised
-- Representation learning for planning and reinforcement learning
-- Hierarchical models
-- application to robotics
 
 \subsection{Stochastic Neural Networks}
 
@@ -98,7 +99,25 @@ The usual Stochastic Feedforward Neural Networks were first described by \citet{
 
 \subsection{Bilinear Integration of latents}
 
-\subsection{Entropy Penalty to encourage skill diversity}
+\section{Problem statement}
+In robotics we are usually interested in solving a collection of tasks with common underlying dynamics. For example, in navigation it is not enough to learn how to solve a single maze: we want to be able to solve other mazes with the same robot. Furthermore it is desirable to leverage off-line experience to reduce the training time needed from each specific task. 
+
+More formally we consider the problem of minimizing the average samples needed to solve the MDPs $\{m_i\}_{i=1}^n$ drawn from a certain distribution:
+\begin{equation}
+    m_i \sim \mathbb{P}_{MDP} (\mathcal{S}, \mathcal{A}, \mathcal{P}, r, \rho_0, \gamma, T)
+\end{equation}
+This distribution has the particularity of having a common \textit{inner structure} $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$ satisfying 
+$$\mathcal{S}_{in} \subset \mathcal{S},~~ \mathcal{A}_{in} \subset \mathcal{A},~~ \mathcal{P}(s)=f(\mathcal{P}_{in}(s))$$
+This can correspond to the dynamics of the robot or to some other invariant part of the MDPs to which we have access offline. The challenge is then how to leverage the partial information provided by the triplet $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$ in a pre-train phase so that the performance in $\{m_i\}_{i=1}^n$ is improved.
+
+\section{Methodology}
+
+We define a pre-train MDP by adding $(r_{in}, \rho_{0in}, \gamma_{in}, T_{in})$ to the triplet $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$ and propose different methods to solve it.
+
+\subsection{Choosig an "intrinsic" reward}
+\subsubsection{General enough: norm speed COM}
+
+\subsubsection{Entropy Penalty to encourage skill diversity}
 
 \section{Experiments}
 The final goal is to solve complex tasks with sparse rewards. Hence we propose the following environments:
@@ -107,11 +126,9 @@ The final goal is to solve complex tasks with sparse rewards. Hence we propose t
     \item food gather, see fig XX
 \end{itemize}
 
-
-\subsection{Pre-training task: Learning to move}
-Our pre-training task is as unuspervised as it can be: 
-
 \subsection{Hierarchical task: Maze Navigation}
+
+\subsection{Gathering?}
 
 \begin{figure}[h!]
 	\centering
@@ -224,13 +241,37 @@ First let's evaluate outside the mazes what will the exploration look like.
 \subsection{Maze 0 and 10}
 The SNN are better!
 
+\begin{figure}[h!]
+	\centering
+	\subfigure[Baseline: runnning iters w/ 1M bs]{
+		\centering
+		\label{fig:Maze4}
+		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_baseline.png}
+	}
+	\subfigure[visit-multi1]{
+		\centering
+		\label{fig:Maze0}
+		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_multi.png}
+	}
+	\subfigure[visit-multi2]{
+		\centering
+		\label{fig:FoodGather}
+		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_snn.png}
+	}
+	\subfigure[visit-snn-1]{
+		\centering
+		\label{fig:Maze10}
+		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_snnHB.png}
+	}
+	\caption{Maze0 - from RLLAB benchmark}
+	\label{fig:hierarchized-exploration}
+\end{figure}
 
 \section{Conclusions}
+We are the best
 
 \subsubsection*{Acknowledgments}
 
-Use unnumbered third level headings for the acknowledgments. All
-acknowledgments, including those to funding agencies, go at the end of the paper.
 
 \bibliography{ref}
 \bibliographystyle{iclr2017_conference}

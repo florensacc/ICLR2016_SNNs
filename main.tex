@@ -156,7 +156,7 @@ There are different ways of advancing and with a general enough reward, every ra
 	\subfigure[TRPO on regular NN]{
 		\centering
 		\label{fig:visit_trpo6_likeSNN}
-	    \includegraphics[width=0.4\textwidth]{Figures/XX.png}
+	    \includegraphics[width=0.4\textwidth]{Figures/likeSNN-hierarchized-multi-Maze-1-egoSwimmer6-pre500-1pl-500in-100Bs-1000-trpo-swimmer-ego-500_visitation.png}
 	}
 	\subfigure[SNN without bilinear integration]{
 		\centering
@@ -181,7 +181,7 @@ Nevertheless, training them by separate does not encourage any kind of diversity
 
 \begin{figure}[h]
 	\centering
-	\subfigure[TRPO on regular NN]{
+	\subfigure[visit snn6 HB varyCoef]{
 		\centering
 		\label{fig:visit_snn6_HB_varyCoef}
 	    \includegraphics[width=0.4\textwidth]{Figures/visit_snn_HB_varyCoef.png}
@@ -197,29 +197,32 @@ First let's evaluate outside the mazes what will the exploration look like.
 
 \begin{figure}[h!]
 	\centering
-	\subfigure[Maze0]{
+	\subfigure[visit-multi1]{
 		\centering
 		\label{fig:Maze0}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze0.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit-multi-1.png}
 	}
-	\subfigure[Maze10]{
-		\centering
-		\label{fig:Maze10}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze10.png}
-	}
-	\subfigure[Maze4 or 6]{
-		\centering
-		\label{fig:Maze4}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze4.png}
-	}
-	\subfigure[Food Gather]{
+	\subfigure[visit-multi2]{
 		\centering
 		\label{fig:FoodGather}
-		\includegraphics[width = 0.2\textwidth]{Figures/FoodGatherAnt.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit-multi-2.png}
 	}
-	\caption{Examples of performance and final policies learned by the SNN on the 2D and 4 modes point-MDP, with 1 latent Bernoulli variables.}
-	\label{fig:snn_multimodal_MI}
+	\subfigure[visit-snn-1]{
+		\centering
+		\label{fig:Maze10}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnHB-1.png}
+	}
+	\subfigure[visit-snn-2]{
+		\centering
+		\label{fig:Maze4}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnHB-2.png}
+	}
+	\caption{Hierarchized exploration for multi-NN and SNN}
+	\label{fig:hierarchized-exploration}
 \end{figure}
+
+\subsection{Maze 0 and 10}
+The SNN are better!
 
 
 \section{Conclusions}

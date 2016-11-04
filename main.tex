@@ -231,12 +231,12 @@ Given the critical importance of learning a wide span of skills, we report two v
 	\subfigure[Concatenation]{
 		\centering
 		\label{fig:snn_architecture_concatenate}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze0.png}
+		\includegraphics[width = 0.2\textwidth]{Figures/architecture-concatenate-snn.png}
 	}
 	\subfigure[Bilinear integration]{
 		\centering
 		\label{fig:snn_architecture_bilinear}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze10.png}
+		\includegraphics[width = 0.5\textwidth]{Figures/architecture_bilinear_snn.png}
 	}
 	\caption{Different architectures for the integration of the latent variables in a FNN}
 	\label{fig:snn_architecture}
@@ -261,50 +261,34 @@ Our implementation parametrized the categorical distribution of the manager with
 
 
 \section{Experiments}
-We have applied our framework to solving with a 3-link swimmer four mazes and a gathering task. Mazes 0 and 1 are depicted in Fig.\ \ref{fig:Maze0}-\ref{fig:Maze1}, where the robot is shown in its starting position and has to reach the other end of the U turn. Mazes 2 and 3 are different instantiations of the environment shown in Fig.\ \ref{fig:Maze2} where the goal has been placed in the North-East or in the South-West corner respectively. A reward of 1 is only granted when the robot reaches the goal position. In the gathering task, the robot gets a reward of 1 for collecting green balls and a reward of -1 for the red ones, all of which are positioned randomly at the start of each rollout. The sensor readings of Maze 0 and the latter task are fully described in the benchmark of continuous control problems \citep{yuan2015rllab}, where it was shown that no general purpose algorithm could solve them.
+We have applied our framework to solving with a 3-link swimmer four mazes and a gathering task. Mazes 0 and 1 are depicted in Fig.\ \ref{fig:Maze0}-\ref{fig:Maze1}, where the robot is shown in its starting position and has to reach the other end of the U turn. Mazes 2 and 3 are different instantiations of the environment shown in Fig.\ \ref{fig:Maze2} where the goal has been placed in the North-East or in the South-West corner respectively. A reward of 1 is only granted when the robot reaches the goal position. In the gathering task, the robot gets a reward of 1 for collecting green balls and a reward of -1 for the red ones, all of which are positioned randomly at the start of each rollout. The sensor readings of Maze 0 and the latter task are fully described in the benchmark of continuous control problems \citep{yuan2015rllab}, where it was shown that no general purpose algorithm could solve them. Our hyperparameters are gathered in the appendix.
 
 \begin{figure}[h!]
 	\centering
 	\subfigure[Maze 0]{
 		\centering
 		\label{fig:Maze0}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze0.png}
+		\includegraphics[width = 0.2\textwidth, height=0.2\textwidth]{Figures/Maze0.png}
 	}
 	\subfigure[Maze 1]{
 		\centering
 		\label{fig:Maze1}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze10.png}
+		\includegraphics[width = 0.2\textwidth, height=0.2\textwidth]{Figures/Maze10.png}
 	}
 	\subfigure[Maze 2 or 3]{
 		\centering
 		\label{fig:Maze2}
-		\includegraphics[width = 0.2\textwidth]{Figures/Maze4.png}
+		\includegraphics[width = 0.2\textwidth, height=0.2\textwidth]{Figures/Maze4.png}
 	}
 	\subfigure[Food Gather]{
 		\centering
 		\label{fig:FoodGather}
-		\includegraphics[width = 0.2\textwidth]{Figures/FoodGatherAnt.png}
+		\includegraphics[width = 0.2\textwidth, height=0.2\textwidth]{Figures/FoodGatherSwimmer.png}
 	}
 	\caption{Illustration of the sparse reward tasks}
 	\label{fig:snn_multimodal_MI}
 \end{figure}
 
-
-The design parameters of our pre-train task and the next task are reported in Tab.\ \ref{tab:params} \textit{But in fact}
-
-\begin{table}
-\centering
-\begin{tabular}[t]{c|cc}
-Parameter & multi-policy & SNN \\
-\hline
-number of skills & \multicolumn{2}{c}{6}\\
-NN hidden units & \multicolumn{2}{c}{[32,32]}\\
-Training algorithm & \multicolumn{2}{c}{TRPO}\\
-Learning rate & \multicolumn{2}{c}{0.01}\\
-\end{tabular}
-\caption{Parameters of the model and algorithms}
-\label{tab:params}
-\end{table}
 
 \section{Results}
 
@@ -422,11 +406,28 @@ Does the enhanced exploration helps to solve sparse complex tasks such as mazes?
 We are the best
 
 \subsubsection*{Acknowledgments}
+This work was supported in part by DARPA, the Berkeley Vision and Learning Center (BVLC), the Berkeley Artificial Intelligence Research (BAIR) laboratory, and Berkeley Deep Drive (BDD). Carlos Florensa is supported by the Ph.D. Fellowship of La Caixa - Spain.
 
-\appendix
-\section{Multimodal Policies in simple MDPs}
 \textit{should we include here some of the work on 2D point-MDPs?}
 \bibliography{ref}
 \bibliographystyle{iclr2017_conference}
+
+\appendix
+\section{Hyperparameters}
+The design parameters of our pre-train task and the next task are reported in Tab.\ \ref{tab:params} \textit{But in fact}
+
+\begin{table}
+\centering
+\begin{tabular}[t]{c|cc}
+Parameter & multi-policy & SNN \\
+\hline
+number of skills & \multicolumn{2}{c}{6}\\
+NN hidden units & \multicolumn{2}{c}{[32,32]}\\
+Training algorithm & \multicolumn{2}{c}{TRPO}\\
+Learning rate & \multicolumn{2}{c}{0.01}\\
+\end{tabular}
+\caption{Parameters of the model and algorithms}
+\label{tab:params}
+\end{table}
 
 \end{document}

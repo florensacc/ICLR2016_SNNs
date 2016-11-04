@@ -184,7 +184,7 @@ In comparison, we use intrinsic rewards as the only signal to the agent during t
     % This paper assumes a finite-horizon discounted Markov decision process (MDP), defined by a tuple $(\S,\A,P, R, \rho_0, \gamma, T)$, in which $\S$ is the state space, $\A$ the action space, $P$ a transition probability distribution, $R$ a reward function, $\rho_0$ an initial state distribution,  $\gamma \in (0, 1]$ a discount factor, and $T$ the horizon. The goal of RL is to maximize the total expected discounted reward $\EE_{\pi} \left[\sum_{t=0}^T \gamma^t R(s_t, a_t) \right]$ over policy $\pi$, which outputs a distribution over actions given a state.
     
     
-    We define a discrete-time finite-horizon discounted Markov decision process (MDP) by a tuple $(\sset, \aset, \trans, r, \rho_0, \gamma, T)$, in which $\sset$ is a state set, $\aset$ an action set, $\trans: \sset \times \aset \times \sset \rightarrow \mathbb{R}_{+}$ a transition probability distribution, $r: \sset \times \aset \rightarrow [-R_{\max}, R_{\max}]$ a bounded reward function, $\rho_0: \sset \to \mathbb{R}_+$ an initial state distribution, $\gamma \in [0, 1]$ a discount factor, and $T$ the horizon. In policy search methods, we typically optimize a stochastic policy $\pi_{\theta}: \sset \times \aset \to \mathbb{R}_+$ parametrized by $\theta$. The objective is to maximize its expected discounted return, $ \eta(\pi_\theta) = \mathbb{E}_{\tau}[ \sum_{t=0}^T \gamma^t r(s_t, a_t) ]$, where $\tau = (s_0, a_0, \ldots)$ denotes the whole trajectory, $\displaystyle s_0 \sim \rho_0(s_0)$, $a_t \sim \pi_\theta(a_t|s_t)$, and $s_{t+1} \sim \trans(s_{t+1} | s_t, a_t)$.
+    We define a discrete-time finite-horizon discounted Markov decision process (MDP) by a tuple $M = (\sset, \aset, \trans, r, \rho_0, \gamma, T)$, in which $\sset$ is a state set, $\aset$ an action set, $\trans: \sset \times \aset \times \sset \rightarrow \mathbb{R}_{+}$ a transition probability distribution, $r: \sset \times \aset \rightarrow [-R_{\max}, R_{\max}]$ a bounded reward function, $\rho_0: \sset \to \mathbb{R}_+$ an initial state distribution, $\gamma \in [0, 1]$ a discount factor, and $T$ the horizon. In policy search methods, we typically optimize a stochastic policy $\pi_{\theta}: \sset \times \aset \to \mathbb{R}_+$ parametrized by $\theta$. The objective is to maximize its expected discounted return, $ \eta(\pi_\theta) = \mathbb{E}_{\tau}[ \sum_{t=0}^T \gamma^t r(s_t, a_t) ]$, where $\tau = (s_0, a_0, \ldots)$ denotes the whole trajectory, $\displaystyle s_0 \sim \rho_0(s_0)$, $a_t \sim \pi_\theta(a_t|s_t)$, and $s_{t+1} \sim \trans(s_{t+1} | s_t, a_t)$.
     %describe MDP?
 %     \item introduce "intrinsic rewards" (COM speed)
 % \end{itemize}
@@ -205,6 +205,8 @@ The usual Stochastic Feedforward Neural Networks were first described by \citet{
 \subsection{Bilinear Integration of latents}
 
 \section{Problem statement}
+
+Our main interest is in solving a collection of downstream tasks, specified via a collection of MDPs $\mdpset$. If these tasks do not share any common structure, we cannot expect to acquire a set of skills that will benefit learning in all of them. We adopt the notion of an agent space \citep{konidaris2011autonomous}. benefit from We assume that 
 In robotics we are usually interested in solving a collection of tasks with common underlying dynamics. For example, in navigation it is not enough to learn how to solve a single maze: we want to be able to solve other mazes with the same robot. Furthermore it is desirable to leverage off-line experience to reduce the training time needed from each specific task. 
 
 More formally we consider the problem of minimizing the average samples needed to solve a collection of MDPs $\{m_i\}_{i\in I}$ drawn from a certain distribution:
@@ -371,14 +373,14 @@ Is it possible to leverage the pre-training experience to improve the exploratio
 	\subfigure[Bilinear-SNN ($\alpha_H=0$) hierarchichy]{
 		\centering
 		\label{fig:visit-hier-snnBil-1M}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnBil-1Mbisbis.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit-snn-1Mbisbis.png}
 	}
 	\subfigure[Bilinear-SNN ($\alpha_H=0.01$) hierarchy]{
 		\centering
 		\label{fig:visit-hier-snnHB-1M}
 		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnHB-1.png}
 	}
-	\caption{Exploration for different randomly initialized !!!! architectures on 100 rollouts with 10k steps}
+	\caption{Exploration for different randomly initialized architectures on 100 rollouts with 10k steps}
 	\label{fig:hierarchized-exploration}
 \end{figure}
 
@@ -389,25 +391,25 @@ Does the enhanced exploration helps to solve sparse complex tasks such as mazes?
 
 \begin{figure}[h!]
 	\centering
-	\subfigure[Baseline: runnning iters w/ 1M bs]{
+	\subfigure[Maze 0]{
 		\centering
 		\label{fig:Maze4}
-		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_baseline.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/learning-Maze0.pdf}
 	}
-	\subfigure[visit-multi1]{
+	\subfigure[Maze 1]{
 		\centering
 		\label{fig:Maze0}
-		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_multi.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/learning-Maze10.pdf}
 	}
 	\subfigure[visit-multi2]{
 		\centering
 		\label{fig:FoodGather}
-		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_snn.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/learning-Maze4.pdf}
 	}
 	\subfigure[visit-snn-1]{
 		\centering
 		\label{fig:Maze10}
-		\includegraphics[width = 0.4\textwidth]{Figures/return_maze0_snnHB.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/learning-Gather.pdf}
 	}
 	\caption{Maze0 - from RLLAB benchmark}
 	\label{fig:hierarchized-exploration}

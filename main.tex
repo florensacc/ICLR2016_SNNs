@@ -46,6 +46,12 @@ $^\ddagger$ OpenAI\\
 \newcommand{\fix}{\marginpar{FIX}}
 \newcommand{\new}{\marginpar{NEW}}
 
+
+\newcommand{\sset}{\mathcal{S}}
+\newcommand{\aset}{\mathcal{A}}
+\newcommand{\oset}{\mathcal{O}}
+\newcommand{\mdpset}{\mathcal{M}}
+\newcommand{\trans}{\mathcal{P}}
 %\iclrfinalcopy % Uncomment for camera-ready version
 
 \begin{document}
@@ -172,12 +178,16 @@ In comparison, we use intrinsic rewards as the only signal to the agent during t
 
 
 \section{Preliminaries}
-\subsection{MDP}
-\begin{itemize}
-    \item This paper assumes a finite-horizon discounted Markov decision process (MDP), defined by $(\S,\A,P, R, \rho_0, \gamma, T)$, in which $\S$ is the state space, $\A$ the action space, $P$ a transition probability distribution, $R$ a reward function, $\rho_0$ an initial state distribution,  $\gamma \in (0, 1]$ a discount factor, and $T$ the horizon. The goal of RL is to maximize the total expected discounted reward $\EE_{\pi} \left[\sum_{t=0}^T \gamma^t R(s_t, a_t) \right]$ over policy $\pi$, which outputs a distribution over actions given a state.
+% \subsection{MDP}
+% \begin{itemize}
+    % \item
+    % This paper assumes a finite-horizon discounted Markov decision process (MDP), defined by a tuple $(\S,\A,P, R, \rho_0, \gamma, T)$, in which $\S$ is the state space, $\A$ the action space, $P$ a transition probability distribution, $R$ a reward function, $\rho_0$ an initial state distribution,  $\gamma \in (0, 1]$ a discount factor, and $T$ the horizon. The goal of RL is to maximize the total expected discounted reward $\EE_{\pi} \left[\sum_{t=0}^T \gamma^t R(s_t, a_t) \right]$ over policy $\pi$, which outputs a distribution over actions given a state.
+    
+    
+    We define a discrete-time finite-horizon discounted Markov decision process (MDP) by a tuple $(\sset, \aset, \trans, r, \rho_0, \gamma, T)$, in which $\sset$ is a state set, $\aset$ an action set, $\trans: \sset \times \aset \times \sset \rightarrow \mathbb{R}_{+}$ a transition probability distribution, $r: \sset \times \aset \rightarrow [-R_{\max}, R_{\max}]$ a bounded reward function, $\rho_0: \sset \to \mathbb{R}_+$ an initial state distribution, $\gamma \in [0, 1]$ a discount factor, and $T$ the horizon. In policy search methods, we typically optimize a stochastic policy $\pi_{\theta}: \sset \times \aset \to \mathbb{R}_+$ parametrized by $\theta$. The objective is to maximize its expected discounted return, $ \eta(\pi_\theta) = \mathbb{E}_{\tau}[ \sum_{t=0}^T \gamma^t r(s_t, a_t) ]$, where $\tau = (s_0, a_0, \ldots)$ denotes the whole trajectory, $\displaystyle s_0 \sim \rho_0(s_0)$, $a_t \sim \pi_\theta(a_t|s_t)$, and $s_{t+1} \sim \trans(s_{t+1} | s_t, a_t)$.
     %describe MDP?
-    \item introduce "intrinsic rewards" (COM speed)
-\end{itemize}
+%     \item introduce "intrinsic rewards" (COM speed)
+% \end{itemize}
 
 \subsection{Stochastic Neural Networks}
 
@@ -304,41 +314,38 @@ Can we increase the consistency and spread of skills obtained when training ever
 
 \textit{Finally, is there any other reward than the CoM speed that would encourage the same span of skills? First, plots without that: only MI doesn't go far at all.}
 
+    
 \begin{figure}[h]
 	\centering
 	\subfigure[Independently trained policies]{
 		\centering
-		\subfloat{\includegraphics[width=0.1\textwidth]{Figures/visit_trpo6.png}}
-	    \subfloat{\includegraphics[width=0.1\textwidth]{Figures/visit_trpo6.png}}
-	    \subfloat{\includegraphics[width=0.1\textwidth]{Figures/visit_trpo6.png}}
-        \subfloat{\includegraphics[width=0.1\textwidth]{Figures/visit_trpo6.png}}
-        \subfloat{\includegraphics[width=0.1\textwidth]{Figures/visit_trpo6.png}}
-        \subfloat{\includegraphics[width=0.1\textwidth]{Figures/visit_trpo6.png}}
+		\includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.1\textwidth]{Figures/visit-trpo1.png}
+	    \includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.1\textwidth]{Figures/visit-trpo2.png}
+		\includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.1\textwidth]{Figures/visit-trpo3.png}
+	    \includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.1\textwidth]{Figures/visit-trpo4.png}
+		\includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.1\textwidth]{Figures/visit-trpo5.png}
+	    \includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.1\textwidth]{Figures/visit-trpo6.png}
 	}
-	\subfigure[TRPO on regular NN]{
+	\subfigure[Combined visitation of the independent policies]{
 		\centering
 		\label{fig:visit_trpo6_likeSNN}
-	    \includegraphics[width=0.2\textwidth]{Figures/likeSNN-hierarchized-multi-Maze-1-egoSwimmer6-pre500-1pl-500in-100Bs-1000-trpo-swimmer-ego-500_visitation.png}
+	    \includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.2\textwidth]{Figures/likeSNN-hierarchized-multi-Maze-1-egoSwimmer6-pre500-1pl-500in-100Bs-1000-trpo-swimmer-ego-500_visitation.png}
 	}
-	\subfigure[SNN without bilinear integration]{
+	\subfigure[SNN without bilinear integration and increasing $\alpha_H=0,0.001,0.01,0.1$]{
 		\centering
 		\label{fig:visit_snn6_noBilinear}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn_NoBil.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-NoBil-0MI.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-NoBil-0001MI.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-NoBil-001MI.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-NoBil-01MI.png}
 	}
-	\subfigure[SNN with bilinear integration]{
+	\subfigure[SNN without bilinear integration and increasing $\alpha_H=0,0.001,0.01,0.1$]{
 		\centering
 		\label{fig:visit_snn6_bilinear}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn6.png}
-	}
-	\subfigure[SNN with Hbonus integration VARYING!!]{
-		\centering
-		\label{fig:visit_snn6_HB}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn_HB_varyCoef.png}
-	}
-	\subfigure[SNN with Hbonus integrationXXXXX]{
-		\centering
-		\label{fig:visit_snn6_noBil_HB}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit_snn_HB.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-Bil-0001MI.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-Bil-001MI.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-Bil-01MI.png}
+		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-Bil-1MI.png}
 	}
 	\caption{Span of skills learn by different methods and architectures}
 	\label{fig:visit_methods}
@@ -364,7 +371,7 @@ Is it possible to leverage the pre-training experience to improve the exploratio
 	\subfigure[Bilinear-SNN ($\alpha_H=0$) hierarchichy]{
 		\centering
 		\label{fig:visit-hier-snnBil-1M}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnBil-1M.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnBil-1Mbisbis.png}
 	}
 	\subfigure[Bilinear-SNN ($\alpha_H=0.01$) hierarchy]{
 		\centering

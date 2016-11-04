@@ -55,7 +55,15 @@ $^\ddagger$ OpenAI\\
 \begin{abstract}
 
 
-Deep reinforcement learning has achieved many impressive results in recent years. However, many of the deep RL algorithms still employ naive exploration strategies, and they have been shown to perform poorly in tasks with sparse rewards, and/or with a long horizon. To tackle these challenges, there are two common approaches. The first approach is to design a hierarchy over the actions, which would require domain-specific knowledge and careful hand-engineering. A different line of work utilizes domain-agnostic intrinsic rewards to guide exploration, which has been shown to be effective in tasks with sparse rewards. However, it is unclear how the knowledge of solving a task can be utilized for other tasks, leading to a high sample complexity overall. In this paper, we propose a general framework for learning useful skills in a pre-training environment, which can then be utilized in downstream tasks by training a high-level policy over these skills. To learn these skills, we use stochastic neural networks (SNNs) combine with an intrinsic reward, the design of which requires very minimal domain knowledge about the downstream tasks. Our experiments show that this combination is effective in learning a wide span of interpretable skills in a sample-efficient way, and, when trained on downstream tasks, can significantly boost the learning performance uniformly across all tasks.
+%%%%
+
+
+
+
+
+%%%%
+
+Deep reinforcement learning has achieved many impressive results in recent years. However, many of the deep RL algorithms still employ naive exploration strategies, and they have been shown to perform poorly in tasks with sparse rewards, and/or with long horizons. To tackle these challenges, there are two common approaches. The first approach is to design a hierarchy over the actions, which would require domain-specific knowledge and careful hand-engineering. A different line of work utilizes domain-agnostic intrinsic rewards to guide exploration, which has been shown to be effective in tasks with sparse rewards. However, it is unclear how the knowledge of solving a task can be utilized for other tasks, leading to a high sample complexity overall. In this paper, we propose a general framework for learning useful skills in a pre-training environment, which can then be utilized in downstream tasks by training a high-level policy over these skills. To learn these skills, we use stochastic neural networks (SNNs) combine with an intrinsic reward, the design of which requires very minimal domain knowledge about the downstream tasks. Our experiments show that this combination is effective in learning a wide span of interpretable skills in a sample-efficient way, and, when trained on downstream tasks, can significantly boost the learning performance uniformly across all tasks.
 
 % Many practical problems in Reinforcement Learning (RL) only have a high level reward signal. This includes all tasks where a reward is only received when reaching a certain goal, even if many coordinated actions need to be taken before. Therefore these tasks have a \textit{sparse reward} and are considered some of the hardest in the field. To tackle them the two main approaches are reward shaping (eg. with some intrinsic motivation for exploration bonus) or using hand-engineered sequences of actions that allow to hierarchize the task and take high level actions (\textit{skills}, \textit{macro-actions} or \textit{options}). The first method can be completely unsupervised but the learning for one specific goal is difficult to re-use for another goal, even if the underlying dynamics are the same. The second method grants better re-use of skills but the prior knowledge needed to design the \textit{macro-actions} is undesired. In the present work we combine the best of both worlds to obtain \textit{skills} in a completely unsupervised fashion via a pre-training step and then use them to solve the actual task. We prove that a good "span of skills" can be learned using Stochastic Neural Networks (SNN) given their extra expressive power. The property of yielding different solutions to the MDP at the end of training (instead of a single one as most RL algorithms) is very interesting and we outline other uses in domain adaptation and bad local minima avoidance.
 \end{abstract}
@@ -86,13 +94,13 @@ However, when facing a collection of tasks, these methods do not provide a direc
 In this paper, we propose a general framework for training policies in a collection of tasks with sparse rewards.
 Our framework first learns a span of skills in a pre-training environment, where it is employed with nothing but an intrinsic reward signal, whose design only require very minimal domain knowledge about the downstream tasks.
 The set of skills can be used later in a wide collection of different tasks, by training a separate high-level policy for each task on top of the skills, thus reducing sample complexity uniformly.
-To learn the span of skills, we propose to use stochastic neural networks (SNNs) \citep{neal1990learning, neal1992connectionist, tang2013learning}, a class of neural networks with stochastic units in the computation graph.
+To learn the span of skills, we propose to use stochastic neural networks (SNNs) \citep{neal1990learning, neal1992connectionist, Tang2014_FSNN}, a class of neural networks with stochastic units in the computation graph.
 This class of architecture can easily represent multi-modal policies, while achieving weight sharing among the different modes.
 We parametrize the stochasticity in the network by feeding latent variables with simple distributions as extra input to the policy.
 By varying the latent code input, and executing the policy conditioned on the latent code, we obtain different behaviors of the policy.
 However, direct application of stochastic neural networks does not always guarantee that a wide range of skills will be learned. 
 We propose an information-theoretic regularizer in the pre-training phase to encourage diversity of behaviors of the SNN policy.
-Our experiments find that our hierarchical policy-learning framework can learn a wide range of skills, which are clearly interpretable as the latent code is varied. Furthermore, we show that training high-level policies on top of the learned skills can lead to great performance on a set of challenging tasks with long horizon and sparse rewards. %The span of skills learned during the pre-training phase are clearly interpretable, outperforming methods in comparison that do not use SNN policies, or .
+Our experiments find that our hierarchical policy-learning framework can learn a wide range of skills, which are clearly interpretable as the latent code is varied. Furthermore, we show that training high-level policies on top of the learned skills can lead to great performance on a set of challenging tasks with long horizons and sparse rewards. %The span of skills learned during the pre-training phase are clearly interpretable, outperforming methods in comparison that do not use SNN policies, or .
 
 %Combined together, we show that % stochastic neural network %, to be learnt, and we show that . %has greater expressive power than usual feed-forward neural networks 
 
@@ -116,22 +124,39 @@ Our experiments find that our hierarchical policy-learning framework can learn a
 
 \section{Related Work}
 
-% Nothing!
+One of the main appeals of hierarchical reinforcement learning (HRL) is to use skills to reduce the search complexity of the problem \citep{parr1998reinforcement, sutton1999between, dietterich2000hierarchical}.
+% The concept of skills has been formalized by the options framework \citep{sutton1999between}.
+However, specifying a good hierarchy often require domain-specific knowledge and careful hand-engineering, and there has been a lot of work on automatic learning of skills, many of which have focused on learning skills in discrete domains \citep{chentanez2004intrinsically, vigorito2010intrinsically}.
+A popular approach there is to use statistics about state transitions to identify bottleneck states \citep{stolle2002learning, mannor2004dynamic, csimcsek2005identifying}.
+It is however not clear how these techniques can be applied to settings with high-dimensional continuous spaces.
+More recently, \cite{mnih2016strategic} proposes a DRAW-like \citep{gregor2015draw} neural network architecture that can learn temporally extended macro actions.
+However, the learning needs to be guided by external rewards as supervisory signals, and hence the algorithm cannot be straightforwardly applied in sparse reward settings.%deep neural network architecutre 
 
-% jk
+There has also been work on learning skills in tasks with continuous actions  \citep{schaal2005learning, konidaris2011autonomous, daniel2013autonomous, ranchod2015nonparametric}.
+These methods extract useful skills from good-performing trajectories in the same or related tasks, and hence require either demonstrations to be provided, or training on similar tasks with non-sparse reward signals.
+Recently, \cite{heess2016learning} have independently proposed to learn a range of skills in a pre-training environment that will be useful for the downstream tasks, which is similar to our framework.
+However, their pre-training setup requires a set of goals to be specified.
+In comparison, we use intrinsic rewards as the only signal to the agent during the pre-training phase, the construction of which only requires very minimal domain knowledge.%, when used with the our task requires They have a similar setup compared to our framework, but differs in that Our setup is similar to theirs but differ
 
-One of the main appeals of hierarchical reinforcement learning (HRL) is to use skills to reduce the search complexity of the problem \citep{parr1998reinforcement, sutton1999between, dietterich2000hierarchical}. The concept of skills has been formalized by the options framework proposed by \cite{sutton1999between}. Automatic learning of skills is a central question in HRL to avoid heavy hand-engineering of the hierarchical structure, and there has been a lot of work on discovering options [cite a bunch]. However, very few work has been done on Also review
-deepmind's paper%one of the central questions in hierarchical reinforcement leanring [cite a bunch], a central queLearning a Hierarchical reinforcement learning 
+%Our formulation of utilizing a pretraining task % to be provided, or similar tasks or require However, these methods re
+%When a good hierarchy is specified, HRL can achieve impressive results \citep{karpathy2012curriculum}.
+
+% has been shown to impressive results Automatic learning of skills is a central question in HRL to avoid heavy hand-engineering of the hierarchical structure, and there has been a lot of work on discovering options [cite a bunch]. However, very few work has been done on Also review
+% deepmind's paper%one of the central questions in hierarchical reinforcement leanring [cite a bunch], a central queLearning a Hierarchical reinforcement learning 
 
 
-Our use of stochastic neural networks is inspired by a large body of previous work.
-There is a large body of work on stochastic neural networks.  restricted boltzmann machines, deep belief networks, sigmoid belief networks. Recently they have been applied to generative modeling of complicated distributions [cite VAE, GAN].
+% Our use of stochastic neural networks is inspired by a large body of previous work on special classes of SNNs, such as Restricted Boltzmann Machines (RBMs) \citep{smolensky1986information, hinton2002training}, Deep Belief Networks \citep{hinton2006fast}, and Sigmoid Belief Networks \citep{neal1990learning, Tang2014_FSNN}.
+% More recently, they have been applied to generative modeling \citep{kingma2013auto, goodfellow2014generative} and achieved impressive results.% There is a large body of work on stochastic neural networks.  restricted boltzmann machines, deep belief networks, sigmoid belief networks. Recently they have been applied to generative modeling of complicated distributions [cite VAE, GAN].
+% Rocky: actually I think it's better to review these in later sections
 
-Our setup of a collection of downstream tasks belongs to the general category of multi-task reinforcement learning. cite a bunch
 
-Intrinsic rewards have been used in reinforcement learning as an auxiliary training signal in addition to the true rewards.
 
-Our information-theoretic regularizer is based on encouraging mutual information between the latent variables and the visitation frequency in the state space. This is inspired by the recent success of using information regularization to enforce interpretability of the latent codes in generative adversarial nets (GANs) \citep{chen2016infogan}.
+% Our setup of having a collection of downstream tasks can be situated within the general category of transfer learning and multi-task reinforcement learning  \citep{taylor2009transfer, wilson2007multi, lazaric2010bayesian, devin2016learning}. However, a key difference from the usual setup there is that we have 
+
+% Intrinsic rewards have been used in reinforcement learning as an auxiliary training signal in addition to the true rewards.
+
+% Our information-theoretic regularizer is based on encouraging mutual information between the latent variables and the visitation frequency in the state space. This is inspired by the recent success of using information regularization to enforce interpretability of the latent codes in generative adversarial nets (GANs) \citep{chen2016infogan}.
+% I suppose this will be cited in later sections
 
 %been more commonly known as generative models.
 %Stochastic neural networks have been studied in the past
@@ -269,7 +294,7 @@ The design parameters of our pre-train task and the next task are reported in Ta
 
 \begin{table}
 \centering
-\begin{tabular}[t]{ccc}
+\begin{tabular}[t]{c|cc}
 Parameter & multi-policy & SNN \\
 \hline
 number of skills & \multicolumn{2}{c}{6}\\
@@ -334,36 +359,38 @@ Can we increase the consistency and spread of skills obtained when training ever
 
 \subsection{Hierarchical use of skills}
 
-Is it possible to leverage the pre-training experience to improve the exploration in future environments? The hierarchical architectures we have proposed have a very direct impact in the area covered by random exploration. We will examine these with visitation plots of 100 rollouts of length 10.000 for the different architectures. Fig.\ \ref{fig:visit-trpo1M} corresponds to Gaussian noise at the output with $\mu=0$ and $\Sigma=I$, as usually used in the first iteration of policy gradient methods (like our pre-training task). The swimmer robot has actions clipped to $[-1,1]$, so this noise is relatively very large \textit{and no other value consistently increases the total visitation}. In Fig.\ \ref{fig:visit-hier-multi-1M} we observe the drastic increase in exploration using the hierarchical approach with pre-trained policies. This plot shows a possible first iteration in the training of the manager network, hence being randomly initialize and picking policies almost uniformly, and committing to them for 500 steps. The same setup for SNNs with bilinear integration and $\alpha_H= 0$ and 0.1 can be seen in Figs.\ \ref{fig:visit-hier-snn-1M} and \ref{fig:visit-hier-snnHB-1M} respectively.
+Is it possible to leverage the pre-training experience to improve the exploration in future environments? The hierarchical architectures we have proposed have a very direct impact in the area covered by random exploration. We will examine these with visitation plots of 100 rollouts of length 10.000 for the different architectures. Fig.\ \ref{fig:visit-trpo1M} corresponds to Gaussian noise at the output with $\mu=0$ and $\Sigma=I$, as usually used in the first iteration of policy gradient methods (like our pre-training task). The swimmer robot has actions clipped to $[-1,1]$, so this noise is relatively very large \textit{and no other value consistently increases the total visitation}. In Fig.\ \ref{fig:visit-hier-multi-1M} we observe the drastic increase in exploration using the hierarchical approach with pre-trained policies. This plot shows a possible first iteration in the training of the manager network, hence being randomly initialize and picking policies almost uniformly, and committing to them for 500 steps. The same setup for SNNs with bilinear integration and $\alpha_H= 0$ and 0.1 can be seen in Figs.\ \ref{fig:visit-hier-snnBil-1M} and \ref{fig:visit-hier-snnHB-1M} respectively. Note how the 
 
 \begin{figure}[h!]
 	\centering
-	\subfigure[Gaussian noise exploration]{
+	\subfigure[Gaussian noise with $\Sigma=I$]{
 		\centering
 		\label{fig:visit-trpo-1M}
 		\includegraphics[width = 0.4\textwidth]{Figures/visit-trpo1M.png}
 	}
-	\subfigure[Exploration of the multi-policy hierarchical architecture]{
+	\subfigure[Multi-policy hierarchichy]{
 		\centering
 		\label{fig:visit-multi-1M}
 		\includegraphics[width = 0.4\textwidth]{Figures/visit-multi-2.png}
 	}
-	\subfigure[visit-snn-1]{
+	\subfigure[Bilinear-SNN ($\alpha_H=0$) hierarchichy]{
 		\centering
-		\label{fig:visit-snnBil-1M}
+		\label{fig:visit-hier-snnBil-1M}
 		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnBil-1M.png}
 	}
-	\subfigure[visit-snn-2]{
+	\subfigure[Bilinear-SNN ($\alpha_H=0.01$) hierarchy]{
 		\centering
 		\label{fig:visit-hier-snnHB-1M}
-		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnHB-2.png}
+		\includegraphics[width = 0.4\textwidth]{Figures/visit-snnHB-1.png}
 	}
-	\caption{Hierarchized exploration for multi-NN and SNN}
+	\caption{Exploration for different randomly initialized !!!! architectures on 100 rollouts with 10k steps}
 	\label{fig:hierarchized-exploration}
 \end{figure}
 
 \subsection{Maze 0 and 10}
-The SNN are better!
+Does the enhanced exploration helps to solve sparse complex tasks such as mazes?
+
+
 
 \begin{figure}[h!]
 	\centering

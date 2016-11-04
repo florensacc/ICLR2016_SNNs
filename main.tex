@@ -336,7 +336,7 @@ Although SNNs have sufficient expressiveness in representing multi-modal policie
 
 We design this objective specifically for mobile robots, although in principle it can be also generalized to other contexts.
 %%TODO: briefly discuss this?
-Concretely, we add an additional reward bonus, proportional to the mutual information between the latent variable and the visitation frequency of the mobile robot over a grid partition of the coordinate space. The intuition behind this bonus is that different latent variable should induce different visitation patterns, which in turn will encourage different skills to be learned.
+Concretely, we add an additional reward bonus, proportional to the mutual information between the latent variable and the visitation frequency of the mobile robot over a grid partition of the coordinate space, where the resolution of the grid is a hyperparameter. The intuition behind this bonus is that different values of the latent variable should induce different visitation patterns, which in turn corresponds to different skills. Formally, let $q$ be coordinates of a single grid, and let $h$ be a latent variable. a variable representing a %will encourage different skills to be learned.
 
 % discretized 
 

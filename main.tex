@@ -577,6 +577,36 @@ The baseline of having an Center of Mass speed intrinsic reward in the task happ
 	\caption{Results for Gather environment in the benchmark settings}
 \end{figure}
 
+
+\section{Snake}
+\subsection{Skills}
+
+\begin{figure}[h!]
+	\centering
+	\subfigure[Gaussian noise with covariance $\Sigma=I$]{
+		\centering
+		\label{fig:visit-trpo-1M}
+		\includegraphics[trim={0cm 0 0cm 1.2cm}, clip, width = 0.22\textwidth]{Figures/visit-trpo-1M.png}
+	}
+	\subfigure[Hierarchichy with Multi-policy]{
+		\centering
+		\label{fig:visit-hier-multi-1M}
+		\includegraphics[trim={2cm 0.7cm 1cm 1.5cm}, clip, width = 0.22\textwidth]{Figures/visit-multi-2.png}
+	}
+	\subfigure[Hierarchy with Bil-SNN $\alpha_H=0$ ]{
+		\centering
+		\label{fig:visit-hier-snnBil-1M}
+		\includegraphics[trim={2cm 0.7cm 1cm 1.5cm}, clip, width = 0.22\textwidth]{Figures/visit-snn-1Mbisbis.png}
+	}
+	\subfigure[Hierarchy with Bil-SNN $\alpha_H=0.01$]{
+		\centering
+		\label{fig:visit-hier-snnHB-1M}
+		\includegraphics[trim={2cm 0.7cm 1cm 1.5cm}, clip, width = 0.22\textwidth]{Figures/visit-snnMI-1Mbis.png}
+	}
+	\caption{Visitation plots for different randomly initialized architectures (100 rollouts, 10k path length). All axis are in scale [-30,30] and we added a zoom for the Gaussian noise to scale [-2,2]}
+	\label{fig:hierarchized-exploration}
+\end{figure}
+
 % \section{Learning curves of pre-train}
 
 

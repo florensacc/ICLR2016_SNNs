@@ -84,7 +84,7 @@ Deep reinforcement learning has achieved many impressive results in recent years
 % - What are the key components of my approach and results? Also include any specific limitations.
 
 
-In recent years, deep reinforcement learning has achieved many impressive results, including playing Atari games using raw pixel inputs \citep{NIPS2014_5421, mnih2015human, Schulman15TRPO}, mastering the game of Go \citep{ silver2016mastering}, and acquiring advanced manipulation and locomotion skills from raw sensory inputs \citep{Schulman15TRPO, lillicrap2015continuous, watter2015embed, schulman2016high, heess2015learning, levine2016end}.
+In recent years, deep reinforcement learning has achieved many impressive results, including playing Atari games using raw pixel inputs \citep{guo2014deep, mnih2015human, Schulman15TRPO}, mastering the game of Go \citep{silver2016mastering}, and acquiring advanced manipulation and locomotion skills from raw sensory inputs \citep{Schulman15TRPO, lillicrap2015continuous, watter2015embed, schulman2016high, heess2015learning, levine2016end}.
 % These successes can be traced back to much earlier work \citep{Tesauro95TDGammon, Bertsekas95Neuro}.
 Despite these success stories, these deep RL algorithms typically employ naive exploration strategies such as $\epsilon$-Greedy or uniform Gaussian exploration noise, which have been shown to perform poorly in tasks with sparse rewards \citep{duan2016benchmarking, houthooft2016variational, bellemare2016unifying}.
 Tasks with sparse rewards are common in realistic scenarios. 
@@ -529,7 +529,7 @@ Note also that the Manager in our hierarchical structure has a discrete action s
 		\label{fig:learn-gather}
 		\includegraphics[width = 0.4\textwidth]{Figures/learn-Gather.pdf}
 	}
-	\caption{Fast learning of the hierarchical architectures in the new MDP tasks}
+	\caption{Faster learning of the hierarchical architectures in the sparse downstream MDPs}
 	\label{fig:learning-curves}
 \end{figure}
 
@@ -582,18 +582,20 @@ The baseline of having a Center of Mass speed intrinsic reward in the task happe
 
 \section{Snake}
 \label{sec:snake}
-In this section we study how our method scales to a more complex robot. We repeat some experiments from Section 7 with a 5-link robot, named Snake (compared to Swimmer the action dimension doubles and the state-space increases by 50\%). We then do some further analysis on the relevance of the switch time $\mathcal{T}$ and end up by reporting the performance variation among different pretrained SNNs on the hierarchical tasks.
 
-\begin{figure}[h!]
-	\centering
-	\label{fig:learn-gather-benchmark}
-	\includegraphics[width = 0.5\textwidth]{Figures/learning-Gather.pdf}
-	\caption{Results for Gather environment in the benchmark settings}
-\end{figure}
+\begin{wrapfigure}{r}{2.5cm}
+\vspace{-20pt}
+\includegraphics[trim={2cm 3cm 1cm 1.5cm}, clip, width = 2.5cm]{Figures/snake-curl.png}
+\vspace{-15pt}
+\caption{Snake}
+\label{fig:snake-curl}
+\end{wrapfigure}
+
+In this section we study how our method scales to a more complex robot. We repeat most experiments from Section 7 with the "Snake" agent, a 5-link robot depicted in Fig.\ \ref{fig:snake-curl}. Compared to Swimmer, the action dimension doubles and the state-space increases by 50\%. We also perform a further analysis on the relevance of the switch time $\mathcal{T}$ and end up by reporting the performance variation among different pretrained SNNs on the hierarchical tasks.
 
 \subsection{Skill learning in pretrain}
 \label{sec:snake-pretrain}
-The Snake robot can learn a large span of skills as consistently as Swimmer. We report in Figs.\ \ref{fig:visit-snn-snake-10}-\ref{fig:visit-snn-snake-50} the visitation plots obtained for different random seeds in our SNN pretraining algorithm from Secs.\ \ref{section:method:pretraining}-\ref{section:method:inforeg}, with Mutual Information bonus of 0.05. The impact of the different spans of skills on the later hierarchical training is discussed in Sec.\ \ref{sec:seed_impact}.
+The Snake robot can learn a large span of skills as consistently as Swimmer. We report in Figs.\ \ref{fig:visit-snn-snake-10}-\ref{fig:visit-snn-snake-50} the visitation plots obtained for five different random seeds in our SNN pretraining algorithm from Secs.\ \ref{section:method:pretraining}-\ref{section:method:inforeg}, with Mutual Information bonus of 0.05. The impact of the different spans of skills on the later hierarchical training is discussed in Sec.\ \ref{sec:seed_impact}.
 
 \begin{figure}[h!]
 	\centering
@@ -632,9 +634,9 @@ The Snake robot can learn a large span of skills as consistently as Swimmer. We 
 
 \subsection{Hierarchical use of skills in maze and gathering}
 \label{sec:snake-hierarchy}
-Here we evaluate the performance of our hierarchical architecture to solve with maze the sparse tasks Maze 0 and Gather from Sec.\ \ref{sec:experiments}. Given the larger size of the robot, we have also increased the size of the maze and the gather task, from 2 to 7 and from 6 to 10 respectively. The maximum path length is also increased in the same proportion, but not the batch size nor the switch time $\mathcal{T}$ (see Sec.\ \ref{sec:switch_time} for an analysis on $\mathcal{T}$). Despite the tasks being harder, our approach still achieves good results, and Figs.\ \ref{fig:egoSnake-maze0}-\ref{fig:egoSnake-gather}, clearly shows how it beats the baseline of having the intrinsic motivation of the Center of Mass in the hierarchical task.
+Here we evaluate the performance of our hierarchical architecture to solve with Snake the sparse tasks Maze 0 and Gather from Sec.\ \ref{sec:experiments}. Given the larger size of the robot, we have also increased the size of the Maze and the Gather task, from 2 to 7 and from 6 to 10 respectively. The maximum path length is also increased in the same proportion, but not the batch size nor the switch time $\mathcal{T}$ (see Sec.\ \ref{sec:switch_time} for an analysis on $\mathcal{T}$). Despite the tasks being harder, our approach still achieves good results, and Figs.\ \ref{fig:egoSnake-maze0}-\ref{fig:egoSnake-gather}, clearly shows how it beats the baseline of having the intrinsic motivation of the Center of Mass in the hierarchical task.
 
-\begin{figure}
+\begin{figure}[h!]
 	\centering
 	\subfigure[Maze 0 with Snake]{
 		\centering
@@ -646,7 +648,7 @@ Here we evaluate the performance of our hierarchical architecture to solve with 
 		\label{fig:egoSnake-gather}
 		\includegraphics[width = 0.45\textwidth]{Figures/egoSnake-gather-range10-agg10.png}
 	}
-	\caption{Fast learning of the hierarchical architectures in the new MDP tasks}
+	\caption{Faster learning of our hierarchical architecture in sparse downstream MDPs with Snake}
 	\label{fig:egoSnake-learning-curves}
 \end{figure}
 
@@ -654,7 +656,7 @@ Here we evaluate the performance of our hierarchical architecture to solve with 
 \label{sec:switch_time}
 The switch time $\mathcal{T}$ does not critically affect the performance for these static tasks, where the robot is not required to react fast and precisely to changes in the environment. The performance of different $\mathcal{T}$ is reported for the Gather task of sizes 10 and 15 in Figs.\ \ref{fig:egoSnake-gather-range10-switch}-\ref{fig:egoSnake-gather-range15-switch}. As expected, we see that for the smaller environment, shorter switch time is better and that for larger one, longer commitments help getting higher scores. For the Maze 0 task, Figs.\ \ref{fig:egoSnake-maze-range7-switch}-\ref{fig:egoSnake-maze-range9-switch} show that the difference between different $\mathcal{T}$ is important but not critical. The large variances observed are due to the performance of the different pretrained SNN. This is further studied in Sec.\ \ref{sec:seed_impact}.
 
-\begin{figure}[h]
+\begin{figure}[h!]
 	\centering
 	\subfigure[Gather task with size 10]{
 		\centering

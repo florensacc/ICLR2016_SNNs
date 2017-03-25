@@ -11,6 +11,7 @@
 \usepackage{amsmath}
 \usepackage[normalem]{ulem}
 \usepackage{dsfont}
+\usepackage{enumitem}
 
 \usepackage[center]{subfigure}
 \newcommand{\R}{\mathbb{R}}
@@ -27,8 +28,9 @@
 \title{Stochastic Neural Networks for \\Hierarchical Reinforcement Learning}
 
 
-\author{Carlos Florensa${^\dagger}$, Yan Duan${^\dagger}{^\ddagger}$, Pieter Abbeel${^\dagger}{^\ddagger}$ \\
+\author{Carlos Florensa${^\dagger}$, Yan Duan${^\dagger}{^\ddagger}$, Pieter Abbeel${^\dagger}{^\ddagger}{^\mathsection}$ \\
 $^\dagger$ UC Berkeley, Department of Electrical Engineering and Computer Science\\
+$^\mathsection$ International Computer Science Institute\\
 $^\ddagger$ OpenAI\\
 % Department of Electrical Engineering and Computer Sciences\\
 % UC Berkeley\\
@@ -53,7 +55,7 @@ $^\ddagger$ OpenAI\\
 \newcommand{\mdpset}{\mathcal{M}}
 \newcommand{\trans}{\mathcal{P}}
 \newcommand{\agent}{\mathrm{agent}}
-%\iclrfinalcopy % Uncomment for camera-ready version
+\iclrfinalcopy % Uncomment for camera-ready version
 
 \begin{document}
 	
@@ -70,214 +72,97 @@ $^\ddagger$ OpenAI\\
 
 %%%%
 
-Deep reinforcement learning has achieved many impressive results in recent years. However, many of the deep RL algorithms still employ naive exploration strategies, and they have been shown to perform poorly in tasks with sparse rewards, and/or with long horizons. To tackle these challenges, there are two common approaches. The first approach is to design a hierarchy over the actions, which would require domain-specific knowledge and careful hand-engineering. A different line of work utilizes domain-agnostic intrinsic rewards to guide exploration, which has been shown to be effective in tasks with sparse rewards. However, it is unclear how the knowledge of solving a task can be utilized for other tasks, leading to a high sample complexity overall for the entire collection of tasks. In this paper, we propose a general framework for learning useful skills in a pre-training environment, which can then be utilized in downstream tasks by training a high-level policy over these skills. To learn these skills, we use stochastic neural networks (SNNs) combined with an intrinsic reward, the design of which requires very minimal domain knowledge about the downstream tasks. Our experiments show that this combination is effective in learning a wide span of interpretable skills in a sample-efficient way, and, when trained on downstream tasks, can significantly boost the learning performance uniformly across all these tasks. 
+Deep reinforcement learning has achieved many impressive results in recent years. However, tasks with sparse rewards or long horizons continue to pose significant challenges. To tackle these challenges, there are two common approaches: The first approach is to design a hierarchy over the action space, which tends to require domain-specific knowledge and careful hand-engineering. The second approach utilizes domain-agnostic intrinsic rewards to guide exploration, which has been shown to be effective in tasks with sparse rewards. However, it is unclear how knowledge acquired for solving one task can be utilized for other tasks, leading to a high sample complexity overall when considering a collection of tasks. In this paper, we propose a general framework that first learns useful skills in a pre-training environment, and then leverages the learned skills for downstream tasks by training a high-level policy over these skills. As such, our approach is bringing together some of the strengths of exploration methods (at pre-training) and hierarchical methods (when learning the downstream tasks).  To pre-train skills, we use stochastic neural networks (SNNs) combined with a proxy reward, the design of which requires very minimal domain knowledge about the downstream tasks. Our experiments show that this combination is effective in learning a wide span of interpretable skills in a sample-efficient way, and, when used on downstream tasks, can significantly boost the learning performance uniformly across a wide range of tasks. 
 
-% Many practical problems in Reinforcement Learning (RL) only have a high level reward signal. This includes all tasks where a reward is only received when reaching a certain goal, even if many coordinated actions need to be taken before. Therefore these tasks have a \textit{sparse reward} and are considered some of the hardest in the field. To tackle them the two main approaches are reward shaping (eg. with some intrinsic motivation for exploration bonus) or using hand-engineered sequences of actions that allow to hierarchize the task and take high level actions (\textit{skills}, \textit{macro-actions} or \textit{options}). The first method can be completely unsupervised but the learning for one specific goal is difficult to re-use for another goal, even if the underlying dynamics are the same. The second method grants better re-use of skills but the prior knowledge needed to design the \textit{macro-actions} is undesired. In the present work we combine the best of both worlds to obtain \textit{skills} in a completely unsupervised fashion via a pre-training step and then use them to solve the actual task. We prove that a good "span of skills" can be learned using Stochastic Neural Networks (SNN) given their extra expressive power. The property of yielding different solutions to the MDP at the end of training (instead of a single one as most RL algorithms) is very interesting and we outline other uses in domain adaptation and bad local minima avoidance.
+
 \end{abstract}
 
 \section{Introduction}
 
-% - What is the problem?
-% - Why is it interesting and important?
-% - Why is it hard? (E.g., why do naive approaches fail?) OK
-% - Why hasn't it been solved before? (Or, what's wrong with previous proposed solutions? How does mine differ?)
-% - What are the key components of my approach and results? Also include any specific limitations.
-
-
-In recent years, deep reinforcement learning has achieved many impressive results, including playing Atari games using raw pixel inputs \citep{guo2014deep, mnih2015human, Schulman15TRPO}, mastering the game of Go \citep{silver2016mastering}, and acquiring advanced manipulation and locomotion skills from raw sensory inputs \citep{Schulman15TRPO, lillicrap2015continuous, watter2015embed, schulman2016high, heess2015learning, levine2016end}.
+In recent years, deep reinforcement learning has achieved many impressive results, including playing Atari games from raw pixel inputs \citep{guo2014deep, mnih2015human, Schulman15TRPO}, mastering the game of Go \citep{silver2016mastering}, and acquiring advanced manipulation and locomotion skills from raw sensory inputs \citep{Schulman15TRPO, lillicrap2015continuous, watter2015embed, schulman2016high, heess2015learning, levine2016end}.
 % These successes can be traced back to much earlier work \citep{Tesauro95TDGammon, Bertsekas95Neuro}.
-Despite these success stories, these deep RL algorithms typically employ naive exploration strategies such as $\epsilon$-Greedy or uniform Gaussian exploration noise, which have been shown to perform poorly in tasks with sparse rewards \citep{duan2016benchmarking, houthooft2016variational, bellemare2016unifying}.
+Despite these success stories, these deep RL algorithms typically employ naive exploration strategies such as $\epsilon$-greedy or uniform Gaussian exploration noise, which have been shown to perform poorly in tasks with sparse rewards \citep{duan2016benchmarking, houthooft2016variational, bellemare2016unifying}.
 Tasks with sparse rewards are common in realistic scenarios. 
 For example, in navigation tasks, the agent is not rewarded until it finds the target. The challenge is further complicated by long horizons, where naive exploration strategies can lead to exponentially large sample complexity \citep{osband2014generalization}.
 
-To tackle these challenges, there are two natural strategies.
+To tackle these challenges, two main strategies have been pursued:
 The first strategy is to design a hierarchy over the actions \citep{parr1998reinforcement, sutton1999between, dietterich2000hierarchical}.
-%%TODO: more recent citations here?
-By composing low-level actions into high-level primitives, the search space can be reduced exponentially, leading to much faster learning. However, although these approaches can be effective, they require domain-specific knowledge and careful hand-engineering. Another line of work uses intrinsic rewards to guide exploration \citep{schmidhuber1991curious, schmidhuber2010formal, houthooft2016variational, bellemare2016unifying}.
-The computation of these intrinsic rewards does not require domain-specific knowledge, and the same approach can be applied to a wide range of tasks.
-However, when facing a collection of tasks, these methods do not provide a direct answer about how knowledge about solving one task may transfer to other tasks, and by solving each of the tasks from scratch, the overall sample complexity may still be high.%the overall sample complexity may still be high.
-% Rocky: I'm not too satisfied with this argument..
+By composing low-level actions into high-level primitives, the search space can be reduced exponentially. However, these approaches require domain-specific knowledge and careful hand-engineering. The second strategy uses intrinsic rewards to guide exploration \citep{schmidhuber1991curious, schmidhuber2010formal, houthooft2016variational, bellemare2016unifying}.
+The computation of these intrinsic rewards does not require domain-specific knowledge.
+However, when facing a collection of tasks, these methods do not provide a direct answer about how knowledge about solving one task may transfer to other tasks, and by solving each of the tasks from scratch, the overall sample complexity may still be high.
 
-In this paper, we propose a general framework for training policies in a collection of tasks with sparse rewards.
-Our framework first learns a span of skills in a pre-training environment, where it is employed with nothing but an intrinsic reward signal, whose design only require very minimal domain knowledge about the downstream tasks.
+In this paper, we propose a general framework for training policies for a collection of tasks with sparse rewards.
+Our framework first learns a span of skills in a pre-training environment, where it is employed with nothing but a proxy reward signal, whose design only requires very minimal domain knowledge about the downstream tasks. This proxy reward can be understood as a form of intrinsic motivation that encourages the agent to explore its own capabilities, without any goal information or sensor readings specific to each downstream task.
 The set of skills can be used later in a wide collection of different tasks, by training a separate high-level policy for each task on top of the skills, thus reducing sample complexity uniformly.
 To learn the span of skills, we propose to use stochastic neural networks (SNNs) \citep{neal1990learning, neal1992connectionist, Tang2014_FSNN}, a class of neural networks with stochastic units in the computation graph.
 This class of architectures can easily represent multi-modal policies, while achieving weight sharing among the different modes.
 We parametrize the stochasticity in the network by feeding latent variables with simple distributions as extra input to the policy.
-By varying the latent code input, and executing the policy conditioned on the latent code, we obtain different behaviors of the policy.
-In the experiments, we observed that direct application of stochastic neural networks does not always guarantee that a wide range of skills will be learned. 
-Hence, we propose an information-theoretic regularizer in the pre-training phase to encourage diversity of behaviors of the SNN policy.
-Our experiments find that our hierarchical policy-learning framework can learn a wide range of skills, which are clearly interpretable as the latent code is varied. Furthermore, we show that training high-level policies on top of the learned skills can lead to great performance on a set of challenging tasks with long horizons and sparse rewards. %The span of skills learned during the pre-training phase are clearly interpretable, outperforming methods in comparison that do not use SNN policies, or .
-
-%Combined together, we show that % stochastic neural network %, to be learnt, and we show that . %has greater expressive power than usual feed-forward neural networks 
-
-%We show that the % about these downstream tasks, while 
-
-
-% Recent advances in Deep Reinforcement Learning allow to train agents with super-human performance in tasks with discrete action-space like Go \cite{2016go} or some Atari games \cite{mnih2015human}. Nevertheless, many challenges remain in the continuous state-action environments, and in particular the problem of tasks with sparse reward is even more acute in the continuous case. In robotics, tasks like navigation or manipulation only have a natural reward in the goal position, and it is often hard to provide constant supervision along the trajectories with a cost function tailored to the task [cite IRL litterature?]. The main difficulty is that a sequence of well coordinated actions, producing a purposeful motion, is required to get any reward signal. Hence, as has been reported in the recent benchmark for continuous control tasks \cite{yuan2015}, it is very unlikely that the usual $\epsilon$-Greedy or Boltzmann exploration [ref] or adding Gaussian noise to the controls for policy gradient algorithms [TRPO], will yield a trajectory providing any feedback. 
-
-% To tackle this issue/challenge there are two main approaches and in this paper we will combine the best of both. One consists in providing an exploration bonus to the agent so that, despite not getting to the goal, it is still pushed to explore unseen regions that could potentially contain the extrinsic reward. In discrete MDPs this intrinsic reward may take many forms, from the simplest based on state-counting (rewarding each state inversely proportional to a function of its visitation counts) [refm, DM, simHash] to information theory-based like surprisal [ ref!! ]. In the continuous domain, VIME uses variatinal inference in Bayesian neural networks to incentivize exploration.
-
-% it is common to provide a specific abstraction of the problem.
-
-% Furthermore, interested in performing well in new environments without much experience in it. This is concretized in the following problem statement.
-
-% Words from ICLR call for papers:
-% - Unsupervised
-% - Representation learning for planning and reinforcement learning
-% - Hierarchical models
-% - application to robotics
-
+In the experiments, we observed that direct application of SNNs does not always guarantee that a wide range of skills will be learned. 
+Hence, we propose an information-theoretic regularizer based on Mutual Information (MI) in the pre-training phase to encourage diversity of behaviors of the SNN policy.
+Our experiments find that our hierarchical policy-learning framework can learn a wide range of skills, which are clearly interpretable as the latent code is varied. Furthermore, we show that training high-level policies on top of the learned skills can results in strong performance on a set of challenging tasks with long horizons and sparse rewards.
 
 \section{Related Work}
 
 One of the main appealing aspects of hierarchical reinforcement learning (HRL) is to use skills to reduce the search complexity of the problem \citep{parr1998reinforcement, sutton1999between, dietterich2000hierarchical}.
-% The concept of skills has been formalized by the options framework \citep{sutton1999between}.
 However, specifying a good hierarchy by hand requires domain-specific knowledge and careful engineering, hence motivating the need for learning skills automatically. Prior work on automatic learning of skills has largely focused on learning skills in discrete domains \citep{chentanez2004intrinsically, vigorito2010intrinsically}.
 A popular approach there is to use statistics about state transitions to identify bottleneck states \citep{stolle2002learning, mannor2004dynamic, csimcsek2005identifying}.
 It is however not clear how these techniques can be applied to settings with high-dimensional continuous spaces.
 More recently, \cite{mnih2016strategic} propose a DRAW-like \citep{gregor2015draw} recurrent neural network architecture that can learn temporally extended macro actions.
-However, the learning needs to be guided by external rewards as supervisory signals, and hence the algorithm cannot be straightforwardly applied in sparse reward settings.%deep neural network architecutre 
+However, the learning needs to be guided by external rewards as supervisory signals, and hence the algorithm cannot be straightforwardly applied in sparse reward settings.
 
-There has also been work on learning skills in tasks with continuous actions  \citep{schaal2005learning, konidaris2011autonomous, daniel2013autonomous, ranchod2015nonparametric}.
-These methods extract useful skills from good-performing trajectories in the same or related tasks, and hence require either demonstrations to be provided, or first training on similar tasks with non-sparse reward signals. 
+There has also been work on learning skills in tasks with continuous actions \citep{schaal2005learning, konidaris2011autonomous, daniel2013autonomous, ranchod2015nonparametric}.
+These methods extract useful skills from successful trajectories for the same (or closely related) tasks, and hence require first solving a comparably challenging task or demonstrations. 
+%Guided Policy Search (GPS)~\cite{levine2016end} leverages access to training in a simpler setting.  GPS trains with iLQG~\cite{todorov2005ilqg} in state space, and in parallel trains a neural net that only receives raw sensory inputs that has to agree with the iLQG controller.  The neural net policy is then able to generalize to new situations.
 
-Another line of work on skill discovery particularly relevant to our approach is the HiREPS algorithm by \cite{daniel2012hierarchical}, where instead of having a mutual information bonus like in this paper, they introduce a hard constraint on an equivalent metric. The solution approach is nevertheless very different as they cannot use policy gradients. Furthermore, although they do achieve multimodality like us, they only tried the episodic case where a single option is active during the rollout. Hence the hierarchical use of the learned skills is less clear. Similarly, the Option-critic architecture \citep{bacon2016option} can learn interpretable skills, but whether they can be reuse across complex tasks is still an open question. Recently, \cite{heess2016learning} have independently proposed to learn a range of skills in a pre-training environment that will be useful for the downstream tasks, which is similar to our framework.
+
+Another line of work on skill discovery particularly relevant to our approach is the HiREPS algorithm by \cite{daniel2012hierarchical} where, instead of having a mutual information bonus like in our proposed approach, they introduce a constraint on an equivalent metric. The solution approach is nevertheless very different as they cannot use policy gradients. Furthermore, although they do achieve multimodality like us, they only tried the episodic case where a single option is active during the rollout. Hence the hierarchical use of the learned skills is less clear. Similarly, the Option-critic architecture \citep{bacon2016option} can learn interpretable skills, but whether they can be reuse across complex tasks is still an open question. Recently, \cite{heess2016learning} have independently proposed to learn a range of skills in a pre-training environment that will be useful for the downstream tasks, which is similar to our framework.
 However, their pre-training setup requires a set of goals to be specified.
-In comparison, we use intrinsic rewards as the only signal to the agent during the pre-training phase, the construction of which only requires very minimal domain knowledge.%, when used with the our task requires They have a similar setup compared to our framework, but differs in that Our setup is similar to theirs but differ
-
-%Our formulation of utilizing a pretraining task % to be provided, or similar tasks or require However, these methods re
-%When a good hierarchy is specified, HRL can achieve impressive results \citep{karpathy2012curriculum}.
-
-% has been shown to impressive results Automatic learning of skills is a central question in HRL to avoid heavy hand-engineering of the hierarchical structure, and there has been a lot of work on discovering options [cite a bunch]. However, very few work has been done on Also review
-% deepmind's paper%one of the central questions in hierarchical reinforcement leanring [cite a bunch], a central queLearning a Hierarchical reinforcement learning 
-
-
-% Our use of stochastic neural networks is inspired by a large body of previous work on special classes of SNNs, such as Restricted Boltzmann Machines (RBMs) \citep{smolensky1986information, hinton2002training}, Deep Belief Networks \citep{hinton2006fast}, and Sigmoid Belief Networks \citep{neal1990learning, Tang2014_FSNN}.
-% More recently, they have been applied to generative modeling \citep{kingma2013auto, goodfellow2014generative} and achieved impressive results.% There is a large body of work on stochastic neural networks.  restricted boltzmann machines, deep belief networks, sigmoid belief networks. Recently they have been applied to generative modeling of complicated distributions [cite VAE, GAN].
-% Rocky: actually I think it's better to review these in later sections
-
-
-
-% Our setup of having a collection of downstream tasks can be situated within the general category of transfer learning and multi-task reinforcement learning  \citep{taylor2009transfer, wilson2007multi, lazaric2010bayesian, devin2016learning}. However, a key difference from the usual setup there is that we have 
-
-% Intrinsic rewards have been used in reinforcement learning as an auxiliary training signal in addition to the true rewards.
-
-% Our information-theoretic regularizer is based on encouraging mutual information between the latent variables and the visitation frequency in the state space. This is inspired by the recent success of using information regularization to enforce interpretability of the latent codes in generative adversarial nets (GANs) \citep{chen2016infogan}.
-% I suppose this will be cited in later sections
-
-%been more commonly known as generative models.
-%Stochastic neural networks have been studied in the past
-
-% - Previous stochastic neural networks literature
-% - Literature on HRL
-% - Very importantly, deepmind's recent work, and how our work is situated compared to theirs
-% - Multi-task learning literature
-% - Intrinsic rewards. How they are used; what 
-% - Mutual information regularizer. Cite InfoGAN
-
-
+In comparison, we use proxy rewards as the only signal to the agent during the pre-training phase, the construction of which only requires minimal domain knowledge or instrumentation of the environment.
 
 
 \section{Preliminaries}
-% \subsection{MDP}
-% \begin{itemize}
-    % \item
-    % This paper assumes a finite-horizon discounted Markov decision process (MDP), defined by a tuple $(\S,\A,P, R, \rho_0, \gamma, T)$, in which $\S$ is the state space, $\A$ the action space, $P$ a transition probability distribution, $R$ a reward function, $\rho_0$ an initial state distribution,  $\gamma \in (0, 1]$ a discount factor, and $T$ the horizon. The goal of RL is to maximize the total expected discounted reward $\EE_{\pi} \left[\sum_{t=0}^T \gamma^t R(s_t, a_t) \right]$ over policy $\pi$, which outputs a distribution over actions given a state.
-    
     
     We define a discrete-time finite-horizon discounted Markov decision process (MDP) by a tuple $M = (\sset, \aset, \trans, r, \rho_0, \gamma, T)$, in which $\sset$ is a state set, $\aset$ an action set, $\trans: \sset \times \aset \times \sset \rightarrow \mathbb{R}_{+}$ a transition probability distribution, $r: \sset \times \aset \rightarrow [-R_{\max}, R_{\max}]$ a bounded reward function, $\rho_0: \sset \to \mathbb{R}_+$ an initial state distribution, $\gamma \in [0, 1]$ a discount factor, and $T$ the horizon. When necessary, we attach a suffix to the symbols to resolve ambiguity, such as $\sset^M$. In policy search methods, we typically optimize a stochastic policy $\pi_{\theta}: \sset \times \aset \to \mathbb{R}_+$ parametrized by $\theta$. The objective is to maximize its expected discounted return, $ \eta(\pi_\theta) = \mathbb{E}_{\tau}[ \sum_{t=0}^T \gamma^t r(s_t, a_t) ]$, where $\tau = (s_0, a_0, \ldots)$ denotes the whole trajectory, $\displaystyle s_0 \sim \rho_0(s_0)$, $a_t \sim \pi_\theta(a_t|s_t)$, and $s_{t+1} \sim \trans(s_{t+1} | s_t, a_t)$.
-    %describe MDP?
-%     \item introduce "intrinsic rewards" (COM speed)
-% \end{itemize}
-
-% \subsection{Stochastic Neural Networks}
-
-% \begin{itemize}
-%     \item To solve continuous MDPS with Policy Gradient methods \citep{peters2008reinforcement}, a stochastic policy is required [appart if you do DDPG?]. The usual is to use a deterministic neural network to parametrize the mean $\mu(s_t)$ and variance $\Sigma(s_t)$ of a Gaussian distribution, from where the next action $a_{t+1}$ is sampled. From the re-parametrization trick perspective \citep{look at SVG paper or DeepMind-modulate}, this corresponds to simply having a linear combination of normal noise at the output of the neural network:
-%     \begin{equation}
-%         a_{t+1} = \mu_{\theta}(s_t) +\epsilon \Sigma_\theta(s_t), ~~~~ \epsilon \sim \mathbb{N}(0,I)
-%     \end{equation}
-%     \item Hence, despite the arbitrary expresiveness of the neural networks, the noise addition process is very restricted, with two major drawbacks. On one hand the exploration is limited and this process will not perform well for continuous sparse hierarchical tasks. 
-    
-%     On the other hand the policy will be unimodal by construction!
-% \end{itemize}
-% The usual Stochastic Feedforward Neural Networks were first described by \citet{tang2013sfnn}
-
-% \subsection{Bilinear Integration of latents}
 
 \section{Problem statement}
 
 Our main interest is in solving a collection of downstream tasks, specified via a collection of MDPs $\mdpset$. If these tasks do not share any common structure, we cannot expect to acquire a set of skills that will speed up learning for all of them. On the other hand, we want the structural assumptions to be minimal, to make our problem statement more generally applicable.
 
-The specific assumption we will make, is that the state and action spaces in these MDPs have a special structure: for each MDP $M \in \mdpset$, we assume that the state space $\sset^M$ can be factored into two components, $\sset_\agent$, and $\sset_{\mathrm{rest}}^M$, which only weakly interacts with each other.
-The $\sset_\agent$ should be the same for all MDPs. We also assume that all the MDPs share the same action space.
-%%TODO: it would be good to also impose assumptions on the transition function, but it seems messy and hard to define precisely
-Intuitively, we can imagine that a robot faces a collection of tasks, where the dynamics of the robot is shared across tasks, and is covered by $\sset_\agent$, but there may be other components in a task-specific state space, which will be denoted by $\sset_{\mathrm{rest}}$. For instance, in a grasping task, $\sset_{\mathrm{rest}}$ may include the positions of objects at interest. This specific structural assumption has been studied in the past as sharing the same \emph{agent-space} \citep{konidaris2007building}.
-% For a grasping task, navigation task this could be the sensor readings of the agent's surroundings. %grasping task task-specific components in the 
+For each MDP $M \in \mdpset$, we assume that the state space $\sset^M$ can be factored into two components, $\sset_\agent$, and $\sset_{\mathrm{rest}}^M$, which only weakly interact with each other.
+The $\sset_\agent$ should be the same for all MDPs in $\mdpset$. We also assume that all the MDPs share the same action space.
+Intuitively, we consider a robot who faces
+a collection of tasks, where the dynamics of the robot are shared across tasks, and are covered by $\sset_\agent$, but there may be other components in a task-specific state space, which will be denoted by $\sset_{\mathrm{rest}}$. For instance, in a grasping task $M$, $\sset_{\mathrm{rest}}^M$ may include the positions of objects at interest or the new sensory input associated with the task. This specific structural assumption has been studied in the past as sharing the same \emph{agent-space} \citep{konidaris2007building}.
 
-Given a collection of tasks satisfying the structural assumption, our objective for designing the algorithm is to minimize the total sample complexity required to solve these tasks. This has been more commonly studied in the past in a sequential setting, where the agent is exposed to a sequence of tasks, and should learn to make use of experience gathered from solving earlier tasks to help solve later tasks \citep{taylor2009transfer, wilson2007multi, lazaric2010bayesian, devin2016learning}. However, this requires that the earlier tasks 
-are relatively easy to solve through good reward shaping, and is not directly applicable when all the tasks have sparse rewards, which is a much more challenging setting. In the next section, we describe our formulation, which takes advantage of a pre-training task that can be constructed with minimal domain knowledge, and can be applied to the more challenging scenario.%, which will be useful . %up with minimal %, either through providing good reward shaping or through constructing a curriculum,  (e.g. have non-sparse rewards), %in solving later %we define our objective to be our objective is to minimize the total sample complexity 
-
-
-% We assume that the state spaces in these MDPs can be factored into two components: for We adopt the notion of an agent space \citep{konidaris2007building}, which is a factored compo. benefit from We assume that 
-% In robotics we are usually interested in solving a collection of tasks with common underlying dynamics. For example, in navigation it is not enough to learn how to solve a single maze: we want to be able to solve other mazes with the same robot. Furthermore it is desirable to leverage off-line experience to reduce the training time needed from each specific task. 
-
-% More formally we consider the problem of minimizing the average samples needed to solve a collection of MDPs $\{m_i\}_{i\in I}$ drawn from a certain distribution:
-% \begin{equation}
-%     m_i = (\mathcal{S}_i, \mathcal{A}_i, \mathcal{P}_i, r_i, \rho_{0i}, \gamma_i, T_i) \sim \mathbb{P}_{MDP}\big( (\cdot, \cdot, \cdot, \cdot, \cdot, \cdot, \cdot) \big)
-% \end{equation}
-% \textit{[This is not too good notation: I should impose that for any element in P, not for the particular samples I had]}
-% This distribution has the particularity of having a common \textit{inner structure} $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$ satisfying \textit{[is this too restrictive? should I generalize more?]}
-% $$\mathcal{S}_{in} \subset \mathcal{S}_i,~~ \mathcal{A}_{in} = \mathcal{A}_i,~~ \mathcal{P}_i(s)=f(\mathcal{P}_{in}(s))~~~ \forall i\in I$$
-% This can correspond to the dynamics of the robot or to some other invariant part of the MDPs to which we have access offline. The challenge is to leverage the partial information provided by the triplet $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$ in a pre-train phase so that the performance in $\{m_i\}_{i\in I}$ is improved.
+Given a collection of tasks satisfying the structural assumption, our objective for designing the algorithm is to minimize the total sample complexity required to solve these tasks. This has been more commonly studied in the past in sequential settings, where the agent is exposed to a sequence of tasks, and should learn to make use of experience gathered from solving earlier tasks to help solve later tasks \citep{taylor2009transfer, wilson2007multi, lazaric2010bayesian, devin2016learning}. However, this requires that the earlier tasks are relatively easy to solve (e.g., through good reward shaping or simply being easier) and is not directly applicable when all the tasks have sparse rewards, which is a much more challenging setting. In the next section, we describe our formulation, which takes advantage of a pre-training task that can be constructed with minimal domain knowledge, and can be applied to the more challenging scenario.
 
 \section{Methodology}
 \label{sec:method}
 
-In this section, we describe our formulation to solve a collection of tasks, exploiting the structural assumption articulated in the previous section. In Section~\ref{section:method:pretraining}, we describe the construction of a pre-training environment, where we use intrinsic rewards that will be useful for learning a span of skills, the design of which require very minimal domain knowledge. In Section~\ref{section:method:snn}, we motivate the usage of stochastic neural networks (SNNs), briefly review the relevant concepts, and discuss the architectural design choices we made to tailor it to skill learning for RL. 
-% Then, in Section~\ref{section:method:snnpolopt}, we describe modifications to policy optimization methods for SNNs.
-%%TODO: fill in when have more time
-In Setion~\ref{section:method:inforeg}, we describe an information-theoretic regularizer that further improves the span of skills learned by SNNs. In Section~\ref{section:method:highlevel}, we describe the architecture of high-level policies over the learned skills, and the training procedure for the downstream tasks with sparse rewards. Finally, in Section~\ref{section:method:polopt}, we describe the policy optimization procedure for both phases of training.%training of high-level policies over the learned skills in the downstream tasks.
+In this section, we describe our formulation to solve a collection of tasks, exploiting the structural assumption articulated above. In Sec.~\ref{section:method:pretraining}, we describe the pre-training environment, where we use proxy rewards that will be useful for learning a span of skills. In Sec.~\ref{section:method:snn}, we motivate the usage of stochastic neural networks (SNNs) and discuss the architectural design choices made to tailor them to skill learning for RL. 
+In Sec.~\ref{section:method:inforeg}, we describe an information-theoretic regularizer that further improves the span of skills learned by SNNs. In Sec.~\ref{section:method:highlevel}, we describe the architecture of high-level policies over the learned skills, and the training procedure for the downstream tasks with sparse rewards. Finally, in Sec.~\ref{section:method:polopt}, we describe the policy optimization for both phases of training.
 
-
-
-% we we can have architectural design decisions we made. to learn a span of skills. 
-
-% Despite having access to $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$, there is no additional information about the task that need to be learned later. To still exploiting the triplet, we propose to first learn from it a discrete span of skills and then integrate them in a hierarchical architecture to improve learning in each of the MDPs in $\{m_i\}_{i\in I}$. In this section we introduce our concept of skill and propose two methods to learn a span of them. Then we describe how to re-use this skills in a hierarchical fashion to solve a new MDP draws from $\mathbb{P}(\cdot)$, even if the later has sparse rewards.
-
-% \subsection{Pre-train MDP to learn skills}
-\subsection{Constructing the pre-training environment}%Pre-train MDP to learn skills}
+\subsection{Constructing the pre-training environment}
 \label{section:method:pretraining}
 
 Given a collection of tasks, we would like to construct a pre-training environment, where the agent can learn a span of skills that will be useful for downstream tasks. We achieve this by letting the agent freely interact with the environment in a minimal setup.
 For a mobile robot, this can be a spacious environment where the robot can first learn the necessary locomotion skills; for a manipulator arm which will be used for object manipulation tasks, this can be an environment with many objects that the robot can interact with.
 
-%%TODO: decide whether to just focus on the mobile robot, since we only conducted experiments in this case
-%%TODO: mention that the state space of the pre-training task should only consist of the agent space
-Rather than specifying goals in the pre-training environment corresponding to the desired skills, which requires precise specification about what the skills should entail, we use an intrinsic reward as the only reward signal to guide skill learning.
-The design of the intrinsic reward should encourage the existence of locally optimal solutions, which will correspond to different skills the agent should learn.
+Rather than specifying goals in the pre-training environment corresponding to the desired skills, which requires precise specification about what the skills should entail, we use a proxy reward as the only reward signal to guide skill learning.
+The design of the proxy reward should encourage the existence of locally optimal solutions, which will correspond to different skills the agent should learn.
 For a mobile robot, this reward can be as simple as proportional to the magnitude of the speed of the robot, without constraining the direction of movement.
 For a manipulator arm, this reward can be the successful grasping of any object.
-% Intrinsic rewards with even less domain knowledge can also be designed, and our experiments show that they can also be effective in skill learning.
-%%TODO: are we planning to have the hashing results
-
-% The intrinsic %For instance, in navigation tasks, 
-
-% We define as skill a policy $\pi(a_{in} | s_{in})$ that, for every $s_{in}\in\mathcal{S}_{in}$, gives a probability distribution over the actions $a_{in}\in\mathcal{A}_{in}$. To learn interesting skills from the triplet $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$ we define a pre-train MDP by adding $(r_{in}, \rho_{0in}, \gamma_{in}, T_{in})$. In particular, the choice of $r_{in}$ is critical. It is tempting to hand-craft a set of reward functions and train different policies on this MDP. For example, if we know that in the next environments turning left will be needed, we could tailor a reward that will encourage the robot to perform a left turn. Nevertheless, given that we are supposed to have access only to the knowledge conveyed by $(\mathcal{S}_{in}, \mathcal{A}_{in}, \mathcal{P}_{in})$, it is desirable to obtain the skills without any tedious reward-engineering. Therefore we propose to simply reward the magnitude of the speed of the Center of Mass of the robot. This magnitude is very easy to obtain even in a real system with basic sensors and does require minimum setup. 
-% \textit{There are many intrinsic rewards that don't assume any prior knowledge to encourage exploration and in particular for robotics tasks the we only need to encourage some motion...}
 
 \subsection{Stochastic Neural Networks for Skill Learning}
 \label{section:method:snn}
 
-Having constructed the pre-training environment, a straightforward way to learn a span of skills is to train different policies, each with a uni-modal action distribution (e.g. a multivariate Gaussian) under different random initializations, and hope that they will converge to different local optima, hence learning different skills. However, the sample complexity of this approach is at least directly proportional to the number of skills we would like to learn. This can become quite expensive when the agent learns from high-dimensional sensory signals like images, and needs to rebuild a good feature representation from scratch. In addition, we do not have any control over whether the different policies actually learn different skills. We address these two issues separately in the current and the next subsection.% , and we focus on the first issue in this section.
+Having constructed the pre-training environment, a straightforward way to learn a span of skills is to train different policies, each with a uni-modal action distribution (e.g. a multivariate Gaussian) under different random initializations, and hope that they will converge to different local optima, hence learning different skills. However, the sample complexity of this approach is at least directly proportional to the number of skills we would like to learn. This can become quite expensive when the agent learns from high-dimensional sensory signals like images, and needs to rebuild a good feature representation from scratch. In addition, we do not have any control over whether the different policies actually learn different skills. We address these two issues separately in the current and the next subsection.
 
 To tackle the first issue, we propose to use stochastic neural networks (SNNs), a general class of neural networks with stochastic units in the computation graph. There has been a large body of prior work on special classes of SNNs, such as Restricted Boltzmann Machines (RBMs) \citep{smolensky1986information, hinton2002training}, Deep Belief Networks (DBNs) \citep{hinton2006fast}, and Sigmoid Belief Networks (SBNs) \citep{neal1990learning, Tang2014_FSNN}. They have rich representation power and can in fact approximate any well-behaved probability distributions \citep{le2008representational, cho2013gaussian}. Policies modeled via SNNs can hence represent complex action distributions, especially multi-modal distributions.
 
-For our purpose, we use a simple class of SNNs, where latent variables with fixed distributions are integrated with inputs to the neural network (here, the observations from the environment) to form a joint embedding, which is then fed to a standard feed-forward neural network with deterministic units, that computes distribution parameters for a uni-modal distribution (e.g. the mean and variance parameters of a multivariate Gaussian). We use simple categorical distributions with uniform weights for the latent variables, where the number of classes, $K$, is a hyperparameter that upper bounds the number of skills that we would like to learn.%should be 
-%%TODO: remember to introduce the actual distribution over latent variables used 
+For our purpose, we use a simple class of SNNs, where latent variables with fixed distributions are integrated with inputs to the neural network (here, the observations from the environment) to form a joint embedding, which is then fed to a standard feed-forward neural network with deterministic units, that computes distribution parameters for a uni-modal distribution (e.g. the mean and variance parameters of a multivariate Gaussian). We use simple categorical distributions with uniform weights for the latent variables, where the number of classes, $K$, is a hyperparameter that upper bounds the number of skills that we would like to learn.
 \begin{figure}[th]
 	\centering
+		\vspace{-10pt}
 	\subfigure[Concatenation]{
 		\centering
 		\label{fig:snn_architecture_concatenate}
@@ -288,52 +173,35 @@ For our purpose, we use a simple class of SNNs, where latent variables with fixe
 		\label{fig:snn_architecture_bilinear}
 		\includegraphics[width = 0.5\textwidth]{Figures/bilinear-architecture-snn.png}
 	}
+	\vspace{-10pt}
 	\caption{Different architectures for the integration of the latent variables in a FNN}
 	\label{fig:snn_architecture}
+		\vspace{-10pt}
 \end{figure}
 
-The simplest joint embedding, as shown in Figure~\ref{fig:snn_architecture_concatenate}, is to concatenate the observations and the latent variables directly.\footnote{In scenarios where the observation is very high-dimensional such as images, we can form a low-dimensional embedding of the observation alone, say using a neural network, before jointly embedding it with the latent variable.} However, this limits the expressiveness power of integration between the observation and latent variable. Richer forms of integrations, such as multiplicative integrations and bilinear pooling, have been shown to have greater representation power and improve the optimization landscape, achieving better results when complex interactions are needed \citep{fukui2016multimodal, wu2016multiplicative}. Inspired by this work, we study using a simple bilinear integration, by forming the outer product between the observation and the latent variable. An illustration of this form of integration is shown in Figure~\ref{fig:snn_architecture_bilinear}. Note that the concatenation integration effectively corresponds to changing the bias term of the first hidden layer depending on the latent code $h$ sampled, and the bilinear integration to changing all the first hidden layer weights. As shown in the experiments, the choice of integration greatly affects the quality of the span of skills that is learned. Our bilinear integration already yields a large span of skills, hence no other type of SNNs is studied in this work.
+The simplest joint embedding, as shown in Figure~\ref{fig:snn_architecture_concatenate}, is to concatenate the observations and the latent variables directly.\footnote{In scenarios where the observation is very high-dimensional such as images, we can form a low-dimensional embedding of the observation alone, say using a neural network, before jointly embedding it with the latent variable.} However, this limits the expressiveness power of integration between the observation and latent variable. Richer forms of integrations, such as multiplicative integrations and bilinear pooling, have been shown to have greater representation power and improve the optimization landscape, achieving better results when complex interactions are needed \citep{fukui2016multimodal, wu2016multiplicative}. Inspired by this work, we study using a simple bilinear integration, by forming the outer product between the observation and the latent variable (Fig.~\ref{fig:snn_architecture_bilinear}). Note that the concatenation integration effectively corresponds to changing the bias term of the first hidden layer depending on the latent code $h$ sampled, and the bilinear integration to changing all the first hidden layer weights. As shown in the experiments, the choice of integration greatly affects the quality of the span of skills that is learned. Our bilinear integration already yields a large span of skills, hence no other type of SNNs is studied in this work.
 
 
-Compared to training separate policies, training a single SNN allows for flexible weight-sharing schemes among different policies. Although the total number of parameters is larger compared to a single non-stochastic feed-forward policy due to the use of a joint embedding compared to an embedding of the observation alone, we will see below that SNNs results in a significant reduction in the sample complexity required to learn a rich set of skills.
+Compared to training separate policies, training a single SNN allows for flexible weight-sharing schemes among different policies. 
+To obtain temporally extended and consistent behavior associated with each latent code, in the pre-training environment we sample a latent code at the beginning of every rollout and keep it constant throughout the entire rollout.
+Finally, we can easily further encourage the diversity of skills learned by the SNN by introducing an information theoretic regularizer, as detailed in the next section. 
+After training, each of the latent code in the categorical distribution will correspond to a different, interpretable skill, which can then be used for the downstream tasks.
 
-In the pre-training environment, rather than re-sampling the latent variable at every time step, which will destroy the consistent behaviors, we use the same sampled latent code throughout the entire episode. After training, each of the latent code in the categorical distribution will correspond to a different skill, which can be then used for the downstream tasks.
-
-
-% \subsection{Using the pre-train MDP}
-% Contrary to most MDPs reported in the literature, in our pre-train setup we want to have different optimal (even locally) solutions. Each of them will yield a possibly useful skill for the tasks to come. Hence a first method to obtain our span of skills is simply to solve several times this generic MDP and collect optimal policies. As will be seen in the Experiments section, this reward is enough to yield most of the interesting skills that a mobile robot should have. \textit{This will be our baseline?}
-
-% Nevertheless, there are two main drawbacks to this straight-forward approach. First, the MDP has to be solved from scratch multiple times given that using part of the training of another policy will make them converge to the same local optima, hence not increasing the span of skills. This can become quite expensive in cases where this policy includes vision or is trained end-to-end [cite Chelsea?]. Second, training multiples policies independently complicates the task to motivate the diversity of the skills learned by each one of them. Therefore we propose to use the extra expressive power of Stochastic Neural Networks (SNNs) to address this two problems. As introduced in the preliminary work and in the appendix, SNNs are able to represent multi-modal distributions. And when used as policies to solve MDPs, this policy can also becomes multi-modal and each of these modes can later be used as a skill. Furthermore, as described in the two following subsection, architecture and information-theoretic enhancements can be applied to encourage the diversity of skills. Therefore, without increasing the difficulty of the pre-training procedure we get a more effective span of skills than training multiple policies separately.
-
-% MENTION: For training, at the begining of the rollout, we sample a latent uniformly and fix it. Also mention the changes in the training algorithm. Should this be an extra sub-section? 
-
-% \subsection{Impact of the SNN architecture}
-% As introduced in the preliminary material, Stochastic Neural Networks can take many different forms, as long as they have some latent variables that are channeled through the non-linearities. For the purpose of learning different skills we have found most convenient to use discrete latent variables so that the modes are easily isolated and interpretable. Therefore we use latents being $h\sim \mathbb{P}_h$ where $\mathbb{P}_h$ is a categorical distribution yielding one-hot vectors. Note that other distributions could be chosen, including continuous, without affecting any of the other aspects of the our framework.
-
-% Given the critical importance of learning a wide span of skills, we report two variants of the integration of the latent variables in a Feedforward Neural Network. The architecture choice has a high impact on the variety and interpretability of the representations learned. The simplest integration of the latent variables is to concatenate them with the actual observation at the input of the FNN. A wider impact on the architecture can be achieved by using bilinear integration of the observation source and the latent code source before inputing it to the FNN. See Fig. \ref{fig:snn_architecture} for a graphical representation of the two architectures. 
-
-% Note that the bilinear integration with one-hot vectors as proposed in Fig.\ \ref{fig:snn_bilinear} can be interpreted as changing the whole first layer of the FNN based on the latent code sampled. 
-
-% Even with the additional parameters needed to accomodate the enlarged input, SNNs are still much cheaper in parameters than training independent policies.\textit{ Re-trying only the first layer from the different policies trained sequentially will not grant a larger span of skills as most tries will fall in the same optima. <-- I have not checked that.. and even if I do, would I report that? Should this go in the experiments all together?}
-
-% \textit{This modification already yields a high span of skills so we haven't tried more/Other integrations could be explored}.
-
-% \subsection{Policy Optimization with Stochastic Neural Networks}
-% \label{section:method:snnpolopt}
-
-% Although SNNs have far richer representation power than 
 
 \subsection{Information-Theoretic Regularization}
 \label{section:method:inforeg}
 
-Although SNNs have sufficient expressiveness in representing multi-modal policies, there is nothing in the optimization that prevents them from collapsing into a single mode. We have not observed this worst case scenario in our experiments, but we do find that sometimes different (discrete) latent codes correspond to the same or very similar skills. It is desirable to have direct control over the diversity of skills that will be learned. To achieve this, we introduce an information-theoretic regularizer, inspired by recent success of similar objectives in encouraging interpretable representation learning in GANs \citep{chen2016infogan}.
+Although SNNs have sufficient expressiveness to represent multi-modal policies, there is nothing in the optimization that prevents them from collapsing into a single mode. We have not observed this worst case scenario in our experiments, but sometimes different latent codes correspond to very similar skills. It is desirable to have direct control over the diversity of skills that will be learned. To achieve this, we introduce an information-theoretic regularizer, inspired by recent success of similar objectives in encouraging interpretable representation learning in GANs (and in particular InfoGAN, \citet{chen2016infogan}).
 
 We design this objective specifically for mobile robots, although in principle it can be also generalized to other contexts.
-%%TODO: briefly discuss this?
-Concretely, we add an additional reward bonus, proportional to the mutual information between the latent variable and the state it is currently in. We only measure the mutual information with respect to a relevant subset in the state. For a mobile robot, we choose this to be the coordinates of its center of mass. We further partition the s-y coordinate space into discrete grids, and map the continuous-valued coordinate into the closest grid. This way, calculation of empirical mutual information only requires maintaining visitation counts of the latent variables in each grid.
+Concretely, we add an additional reward bonus, proportional to the mutual information (MI) between the latent variable and the state it is currently in. We only measure the MI with respect to a relevant subset of the state.
+For a mobile robot, we choose this to be the coordinates of its center of mass. We further partition the $(x,y)$ coordinate space into discrete grids, and map the continuous-valued coordinate into the closest grid. This way, calculation of empirical MI only requires maintaining visitation counts of the latent variables in each grid.
 
-Mathematically, let $X$ be a random variable denoting the grid in which the agent is currently situated, and let $Z$ be a random variable for the latent variable. Our additional reward bonus is $\alpha_H I(Z;X) = \alpha_H (H(Z) - H(Z|X))$, where $H$ denotes the entropy function. In our case, $H(Z)$ is constant since the distribution of the latent variable is fixed, and hence maximizing mutual information is equivalent to minimizing the conditional entropy. Therefore, another interpretation of this bonus is that given where the robot is, it should be easy to infer what skill the robot is currently performing. %latent variable 
-%%PA: add something about how this is done? e.g. is a classifier being trained to do so, and does its performance affect reward? 
+Mathematically, let $X$ be a random variable denoting the grid in which the agent is currently situated, and let $Z$ be a random variable for the latent variable. Our additional reward bonus is $\alpha_H I(Z;X) = \alpha_H (H(Z) - H(Z|X))$, where $H$ denotes the entropy function. In our case, $H(Z)$ is constant since the distribution of the latent variable is fixed, and hence maximizing MI is equivalent to minimizing the conditional entropy. Therefore, another interpretation of this bonus is that given where the robot is, it should be easy to infer  which
+skill the robot is currently performing. 
+
+%%PA: add paragraph about how the mutual information is computed in practice
+
 
 % involves simple reduces , which is a very weak form of We preserve visitation frequency of the mobile robot over a grid partition of the coordinate space, where the resolution of the grid is a hyperparameter. The intuition behind this bonus is that different values of the latent variable should induce different visitation patterns, which in turn corresponds to different skills. Formally, let $q$ be coordinates of a single grid, and let $h$ be a latent variable. %a variable representing a %will encourage different skills to be learned.
 
@@ -345,37 +213,33 @@ Mathematically, let $X$ be a random variable denoting the grid in which the agen
 \label{section:method:highlevel}
 
 \begin{wrapfigure}{r}{5cm}
+\vspace{-40pt}
 \includegraphics[width = 5cm]{Figures/hierarchical-SNN.png}
 \caption{Hierarchical SNN architecture to solve downstream tasks}
 \label{fig:hierarchical_snn_architecture}
 \end{wrapfigure}
 
-Given a span of skills learned from the pre-training task, we now describe how to use them as basic building blocks for solving tasks where only sparse reward signals are provided. Assuming that the categorical latent variable of the pretrained SNN has $K$ classes, and hence there are $K$ different skills, the high-level policy operates by selecting among these different skills. For a given task $M \in \mdpset$, and given a known factored representation of the state space $\sset^M$ as $\sset_\agent$ and $\sset_{\mathrm{rest}}^M$, the high-level policy receives the full state as input, and outputs a discrete action out of $K$ possible choices. The high-level policy operates at a slower time scale than the SNN policy, only switching its categorical output every $\mathcal{T}$ time-steps. We call $\mathcal{T}$ the switch time and it is a hyperparameter to be determined based on the downstream task (see Appendix \ref{sec:switch_time} for a sensitivity analysis). We choose to parametrize the high-level policy as a separate neural network for each MDP, as seen in Fig.\ \ref{fig:hierarchical_snn_architecture}. We freeze the weights of the SNN during this phase of training, and we show in the experiments that this is already sufficient to achieve good performance in the downstream tasks. In principle, they can also be jointly optimized to adapt the skills to the task at hand.  
+Given a span of skills learned from the pre-training task, we now describe how to use them as basic building blocks for solving tasks where only sparse reward signals are provided. Assuming that the categorical latent variable of the pretrained SNN has $K$ classes, and hence there are $K$ different skills, we train a high-level policy (Manager Neural Network) that operates by selecting among these different skills. 
+For a given task $M \in \mdpset$, and given a known factored representation of the state space $\sset^M$ as $\sset_\agent$ and $\sset_{\mathrm{rest}}^M$, the high-level policy receives the full state as input, and outputs the parametrization of a categorical distribution from which we sample a discrete action out of $K$ possible choices, as depicted in Fig.\ \ref{fig:hierarchical_snn_architecture}. 
+The high-level policy operates at a slower time scale than the SNN policy, only switching its categorical output every $\mathcal{T}$ time-steps. We call $\mathcal{T}$ the switch time and it is a hyperparameter to be determined based on the downstream task (see Appendix \ref{sec:switch_time} for a sensitivity analysis). 
+The same structure could also be used to switch between $K$ full policies independently pre-trained; this will be one of our baselines (called Multi-policy) further detailed in the experiment section.
+
+We freeze the weights of the SNN during this phase of training. In principle, they can also be jointly optimized to adapt the skills to the task at hand. This end-to-end training of a policy with discrete latent variables in the Stochastic Computation Graph could be done using straight-through estimators like the one proposed by \cite{jang2016gumbel} or \cite{maddison2016concrete}. Nevertheless, we show in our experiments that frozen low-level policies are already sufficient to achieve good performance in the studied downstream tasks, so these directions are left as future research.
 
 
 \subsection{Policy Optimization}
 \label{section:method:polopt}
 
-For both the pre-training phase and the training of the high-level policies, we use Trust Region Policy Optimization (TRPO) as the policy optimization algorithm \citep{Schulman15TRPO}. We choose TRPO due to its excellent empirical performance and because it does not require excessive hyperparameter tuning. For the pre-training phase, the training of policies is complicated by the fact that due to the presence of latent variables, the marginal distribution of $\pi(a|s)$ is now a mixture of Gaussians instead of a simple Gaussian, and it may even become intractable to compute if we use more expressive latent variables. This also complicates the computation of KL divergence, which is needed to control the step size of the policy update. In our implementation, we hold the latent variable as fixed in the optimization phase, and compute $\pi(a|s,z)$, where $z$ is the latent variable, without marginalizing over $z$. The rest of the TRPO procedure can then be straightforwardly applied. %treat the latent variable as part of the observation to the policy, stochastic 
-
-
-
-
-
-
-% The MDPs that we want to tackle have a highly sparse reward structure and trying to learn a good policy from scratch in that environment can take very long or be not possible for standard methods. We propose to use the skills learned in the pre-training task in a hierarchical way to overcome this difficulty and learn faster. Instead of learning the low level skills again, we propose to learn only how to select skills sequentially. To do so we introduce a new "Pilot/Operator/high-level/manager" policy $\mathcal{M}_i$ for each new MDP $m_i$. This policy receives as input the full state $s_t\in \mathcal{S_i}$ and outputs a one-hot vector of dimension equal to the number of pre-trained skills. This vector is then used to select a skill to be active for the following $T_{agg}$ steps. During this time the actions takes are exclusively based on the robot observations $s^R_t\subset s_t$ and the active skill, and given that $\mathcal{A}_i = \mathcal{A}_{in}$ these actions can directly be applied to the current MDP $m_i$.
-
-
-% For the multi-policy architecture, each entry of the one-hot is used to multiply the output of each of the pre-trained policies. Summing this weighted/masked outputs effectively yields the action corresponding to the selected skill. For the SNN architecture, the one-hot vector is directly inputed in place of the latent. See details in Fig.\ \ref{fig:snn_architecture}
-
-% Our implementation parametrized the categorical distribution of the manager with a Neural Network with a soft-max at the output. The pre-trained networks remain fixed during learning in the new MDP $m_i$, therefore despite sampling a discrete variables we can still obtain the derivative of the policy with respect to all the trainable parameters with standard back-propagation and any policy gradient algorithm can be used to train the manager network. In fact, given now the discrete nature of the output of the trainable part, other methods like DQN or even value iteration could be used, opening a new realm of possibilities. We will still use TRPO just for simplicity/coherence/??. \textit{should this already be in experiments?}
+For both the pre-training phase and the training of the high-level policies, we use Trust Region Policy Optimization (TRPO) as the policy optimization algorithm \citep{Schulman15TRPO}. We choose TRPO due to its excellent empirical performance and because it does not require excessive hyperparameter tuning. For the pre-training phase, the training of policies is complicated by the fact that due to the presence of latent variables, the marginal distribution of $\pi(a|s)$ is now a mixture of Gaussians instead of a simple Gaussian, and it may even become intractable to compute if we use more expressive latent variables. This also complicates the computation of KL divergence, which is needed to control the step size of the policy update. In our implementation, we hold the latent variable as fixed in the optimization phase, and compute $\pi(a|s,z)$, where $z$ is the latent variable, without marginalizing over $z$. The rest of the TRPO procedure can then be straightforwardly applied. 
 
 
 \section{Experiments}
 \label{sec:experiments}
-We have applied our framework to the two hierarchical tasks described in the benchmark by \cite{duan2016benchmarking}: Locomotion + Maze and Locomotion + Food Collection. The observation space of these tasks naturally decompose into $S_{agent}$ being the robot and $S_{rest}^M$ the task-specific attributes like walls, goals, and sensor readings. Here we report the results using the Swimmer robot, also described in the benchmark paper. In fact, the swimmer locomotion task described therein corresponds exactly to our pretrain task, as we also solely reward speed in a plain environment. We report results with more complex robots in Appendix \ref{sec:snake}-\ref{sec:ant}.
+We have applied our framework to the two hierarchical tasks described in the benchmark by \cite{duan2016benchmarking}: Locomotion + Maze and Locomotion + Food Collection (Gather). The observation space of these tasks naturally decompose into $S_{agent}$ being the robot and $S_{rest}^M$ the task-specific attributes like walls, goals, and sensor readings. Here we report the results using the Swimmer robot, also described in the benchmark paper. In fact, the swimmer locomotion task described therein corresponds exactly to our pretrain task, as we also solely reward speed in a plain environment. We report results with more complex robots in Appendix \ref{sec:snake}-\ref{sec:ant}.
 
-To increase the variety of downstream tasks, we have constructed 4 different mazes. Maze 0 is the same described in the benchmark \citep{duan2016benchmarking} and Maze 1 is its reflexion, where the robot has to go backwards-right-right instead of forward-left-left. These correspond to  Figs.\ \ref{fig:Maze0}-\ref{fig:Maze1}, where the robot is shown in its starting position and has to reach the other end of the U turn. Mazes 2 and 3 are different instantiations of the environment shown in Fig.\ \ref{fig:Maze2}, where the goal has been placed in the North-East or in the South-West corner respectively. A reward of 1 is only granted when the robot reaches the goal position. In the gathering task depicted in Fig.\ \ref{fig:FoodGather}, the robot gets a reward of 1 for collecting green balls and a reward of -1 for the red ones, all of which are positioned randomly at the beginning of each episode. The sensor readings for the Mazes and the Gather tasks are further described in the benchmark of continuous control problems \citep{duan2016benchmarking}, where it was shown that algorithms that employ naive exploration strategies could not solve them. More advanced intrinsically motivated explorations \citep{houthooft2016variational} do achieve some progress, and we report our stronger results with the exact same setting in Appendix \ref{sec:gather_compare}. Our hyperparameters for the neural network architectures and algorithms are detailed in the Appendix \ref{sec:hyper}.
+To increase the variety of downstream tasks, we have constructed four different mazes. Maze 0 is the same as the one described in the benchmark \citep{duan2016benchmarking} and Maze 1 is its reflection, where the robot has to go backwards-right-right instead of forward-left-left. These correspond to  Figs.\ \ref{fig:Maze0}-\ref{fig:Maze1}, where the robot is shown in its starting position and has to reach the other end of the U turn. Mazes 2 and 3 are different instantiations of the environment shown in Fig.\ \ref{fig:Maze2}, where the goal has been placed in the North-East or in the South-West corner respectively. A reward of 1 is only granted when the robot reaches the goal position. In the Gather task depicted in Fig.\ \ref{fig:FoodGather}, the robot gets a reward of 1 for collecting green balls and a reward of -1 for the red ones, all of which are positioned randomly at the beginning of each episode. Apart from the robot joints positions and velocities, in these tasks the agent also receives LIDAR-like sensor readings of the distance to walls, goals or balls that are within a certain range. 
+
+In the benchmark of continuous control problems \citep{duan2016benchmarking} it was shown that algorithms that employ naive exploration strategies could not solve them. More advanced intrinsically motivated explorations \citep{houthooft2016variational} do achieve some progress, and we report our stronger results with the exact same setting in Appendix \ref{sec:gather_compare}. Our hyperparameters for the neural network architectures and algorithms are detailed in the Appendix \ref{sec:hyper} and the full code is available\footnote{https://github.com/florensacc/snn4hrl}.
 
 \begin{figure}[ht]
 	\centering
@@ -399,6 +263,7 @@ To increase the variety of downstream tasks, we have constructed 4 different maz
 		\label{fig:FoodGather}
 		\includegraphics[width = 0.2\textwidth, height=0.2\textwidth]{Figures/FoodGatherSwimmer.png}
 	}
+	\vspace{-10pt}
 	\caption{Illustration of the sparse reward tasks}
 	\label{fig:snn_multimodal_MI}
 \end{figure}
@@ -406,24 +271,25 @@ To increase the variety of downstream tasks, we have constructed 4 different maz
 
 \section{Results}
 \label{sec:results}
-
 We evaluate every step of the skill learning process, showing the relevance of the different pieces of our architecture and how they impact the exploration achieved when using them in a hierarchical fashion. Then we report the results on the sparse environments described above. We seek to answer the following questions:
 \begin{itemize}
-    \item Does pre-training with an intrinsic motivation reward yield a span of skills? Can we leverage the multimodality of SNNs and the MI bonus to consistently obtain a large span of skills, improving sample efficiency? 
-    \item Can the pre-training experience be leveraged to improve the exploration in downstream environments?
+\vspace{-8pt}
+    \setlength\itemsep{0em}
+    \item Can the multimodality of SNNs and the MI bonus consistently yield a large span of skills? 
+    \item Can the pre-training experience improve the exploration in downstream environments?
     \item Does the enhanced exploration help to efficiently solve sparse complex tasks?
 \end{itemize}
-Appart from the explanations below, videos of the achieved results are available\footnote{\url{https://goo.gl/5wp4VP}}.
+Appart from the explanations below, videos of the achieved results are available\footnote{\label{foot:video} \url{https://goo.gl/5wp4VP}}. 
 
 \subsection{Skill learning in pretrain}
 
-To evaluate the diversity of the learned skills we use ``visitation plots'', showing the $(x,y)$ position of the robot's Center of Mass (CoM) during 100 rollouts of 500 steps each, resetting the robot to a random position near the origin at the beginning of every rollout (as done during training). In Fig.\ \ref{fig:visit-trpo-individuals} we show the visitation plot of six different policies, each trained from scratch in our pre-training environment. For better graphical interpretation and comparison with the next plots of the SNN policies, Fig.\ \ref{fig:visit_trpo6_likeSNN} superposes a batch of 50 rollout for each of the 6 policies, each with a different color. Given the morphology of the swimmer, it has a natural preference for forward and backward motion so, when no extra incentive is added, the visitation concentrates heavily on the direction it is initialized with, which is roughly the same for every rollout despite the random initialization. Note nevertheless that the intrinsic motivation is general enough so that each independently trained policy yields a different ways of advancing, hence granting a potentially useful skills to solve downstream tasks when embedded in our described hierarchical architecture.
+To evaluate the diversity of the learned skills we use ``visitation plots'', showing the $(x,y)$ position of the robot's Center of Mass (CoM) during 100 rollouts of 500 time-steps each. At the beginning of every rollout, we reset the robot to the origin, always in the same orientation (as done during training). In Fig.\ \ref{fig:visit-trpo-individuals} we show the visitation plot of six different feed-forward policies, each trained from scratch in our pre-training environment. For better graphical interpretation and comparison with the next plots of the SNN policies, Fig.\ \ref{fig:visit_trpo6_likeSNN} superposes a batch of 50 rollout for each of the 6 policies, each with a different color. Given the morphology of the swimmer, it has a natural preference for forward and backward motion. Therefore, when no extra incentive is added, the visitation concentrates heavily on the direction it is always initialized with. Note nevertheless that the proxy reward is general enough so that each independently trained policy yields a different way
+of advancing, hence granting a potentially useful skills to solve downstream tasks when embedded in our described Multi-policy hierarchical architecture.
 
-Next we show that we can learn a similar or even larger span of skills without training several independent policies by using SNNs. In the two rows of Figs.\ \ref{fig:visit_snn6_noBilinear}-\ref{fig:visit_snn6_bilinear} we present the visitation plots of a policy obtained for different design choices. Now the colors indicate the latent that was sampled at the beginning of the rollout. We observe that each latent generates a particular, interpretable behavior. In the following we analyze the impact on the span of skills of the integration of latents (concatenation in first row and bilinear in the second) and the MI bonus (increasing coeficient $\alpha_H$ towards the right). Simple concatenation of latents with the observations rarely yields distinctive behaviors for each latent. On the other hand, we have observed that 80\% of the trained SNNs with bilinear integration acquire at least forward and backward motion associated with different latents. This can be further improved to 100\% by increasing $\alpha_H$ and we also observe that the MI bonus yields less overlapped skills and new advancing/turning skills, independently of the integration of the latents.
-    
 \begin{figure}[h!]
+    \vspace{-10pt}
 	\centering
-	\subfigure[Independently trained policies in the pre-train MDP with the intrinsic reward of the CoM speed norm]{
+	\subfigure[Independently trained policies in the pre-train MDP with the proxy reward of the CoM speed norm]{
 		\centering
 		\label{fig:visit-trpo-individuals}
 		\includegraphics[trim={2cm 0 2cm 1.5cm}, clip, width=0.1\textwidth]{Figures/visit-trpo1.png}
@@ -454,15 +320,28 @@ Next we show that we can learn a similar or even larger span of skills without t
 		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-Bil-01MI.png}
 		\includegraphics[trim={2cm 0 1cm 1.5cm}, clip, width = 0.2\textwidth]{Figures/visit-snn-Bil-1MI.png}
 	}
+	\vspace{-10pt}
 	\caption{Span of skills learn by different methods and architectures}
 	\label{fig:visit_methods}
 \end{figure}
+
+Next we show that, using SNNs, we can learn a similar or even larger span of skills without training several independent policies. The number of samples used to train a SNN is the same as a single feed-forward policy from Fig.\ \ref{fig:visit-trpo-individuals}, therefore this method of learning skills effectively reduces the sample complexity by a factor equal to the numbers of skills being learned. With an adequate architecture and MI bonus, we show that the span of skills generated is also richer.   
+In the two rows of Figs.\ \ref{fig:visit_snn6_noBilinear}-\ref{fig:visit_snn6_bilinear} we present the visitation plots of SNNs policies obtained for different design choices. Now the colors indicate the latent code that was sampled at the beginning of the rollout. We observe that each latent code generates a particular, interpretable behavior. Given that the initialization orientation is always the same, the different skills are truly distinct ways of moving: forward, backwards, or sideways. In the following we analyze the impact on the span of skills of the integration of latent variables (concatenation in first row and bilinear in the second) and the MI bonus (increasing coeficient $\alpha_H$ towards the right). Simple concatenation of latent variables with the observations rarely yields distinctive behaviors for each latent code sampled. On the other hand, we have observed that 80\% of the trained SNNs with bilinear integration acquire at least forward and backward motion associated with different latent codes. This can be further improved to 100\% by increasing $\alpha_H$ and we also observe that the MI bonus yields less overlapped skills and new advancing/turning skills, independently of the integration of the latent variables.
+
 
 % put learning curves of the pre-train task in the appendix!!
 
 \subsection{Hierarchical use of skills}
 
-The hierarchical architectures we propose have a direct impact on the areas covered by random exploration. We will examine these with visitation plots of a single rollout of one million steps. The exploration obtained with Gaussian noise at the output with $\mu=0$ and $\Sigma=I$ is reported in Fig.\ \ref{fig:visit-trpo-1M}. This noise is relatively large as the swimmer robot has actions clipped to $[-1,1]$, but it still does not yield good exploration. On the other hand, using our hierarchical structures with pretrained policies yields a drastic increase in exploration, as shown in Fig.\ \ref{fig:visit-hier-multi-1M}-\ref{fig:visit-hier-snnHB-1M}. All these plots show a possible rollout under a randomly initialized Manager Network, hence outputting uniformly distributed one-hot vectors every $\mathcal{T}=500$ steps, also for one million steps. In Fig.\ \ref{fig:visit-hier-multi-1M} the one-hot output of the Manager Network is used to select one of the six policies which visitation is shown in Fig.\ \ref{fig:visit-trpo-individuals}. This hierarchical architecture is our strong baseline (it has used 6 times more samples for pretrain because it trained every policy independently) and will be referred to as Multi-policy. Our architecture using the SNN described in Sec.\ \ref{section:method:highlevel} uses the one-hot vector instead of the latent. The same one million steps visitation, for pre-trained bilinear SNN with $\alpha_H= 0$ and 0.01 can be seen in Figs.\ \ref{fig:visit-hier-snnBil-1M} and \ref{fig:visit-hier-snnHB-1M} respectively. The exploration given by the Multi-policy hierarchy concentrates quite heavily in upward and downword motion, as is expected form the individual policies composing it (refer back to Fig.\ \ref{fig:visit-trpo-individuals}). On the other hand the exploration obtained with SNNs yields a wider coverage of the space as the underlying policy usually has additional behaviors. Note how most of the changes of latent yield a corresponding change in direction. Our simple pre-train setup and the interpretability of the obtained skills are key advantages with respect to other similar hierarchical structures like seen in \citet{heess2016learning}.
+The hierarchical architectures we propose have a direct impact on the areas covered by random exploration. We will illustrate it with plots showing the visitation of the $(x-y)$ position of the Center of Mass (CoM) during single rollouts of one million steps, each generated with a different architecture. 
+
+On one hand, we show in Fig.\ \ref{fig:visit-trpo-1M} the exploration obtained with actions drawn from a Gaussian with $\mu=0$ and $\Sigma=I$, similar to what would happen in the first iteration of training a Multi-Layer Perceptron with normalized random initialization of the weights. This noise is relatively large as the swimmer robot has actions clipped to $[-1,1]$. Still, it does not yield good exploration as all point reached by the robot during the one million steps rollout lay within the $[-2,2]\times[-2,2]$ box around the initial position. This exploration is not enough to reach the first reward in most of the downstream sparse reward environments and will never learn, as already reported by \citet{duan2016benchmarking}. 
+
+On the other hand, using our hierarchical structures with pretrained policies introduced in Sec.\ \ref{section:method:highlevel} yields a considerable increase in exploration, as reported in Fig.\ \ref{fig:visit-hier-multi-1M}-\ref{fig:visit-hier-snnHB-1M}. These plots also show a possible one millions steps rollout, but under a randomly initialized Manager Network, hence outputting uniformly distributed one-hot vectors every $\mathcal{T}=500$ steps. The color of every point in the CoM trajectory corresponds to the latent code that was fixed at that time-step, clearly showing the ``skill changes". In the following we describe what specific architecture was used for each plot.
+
+The rollout in Fig.\ \ref{fig:visit-hier-multi-1M} is generated following a policy with the \textit{Multi-policy} architecture. This hierarchical architecture is our strong baseline given that it has used six times more samples for pretrain because it trained six policies independently. As explained in Sec.\ \ref{section:method:highlevel}, every $\mathcal{T}=500$ steps it uses the sampled one-hot output of the Manager Network to select one of the six pre-trained policies. We observe that the exploration given by the \textit{Multi-policy} hierarchy heavily concentrates around upward and downward motion, as is expected from the six individual pre-trained policies composing it (refer back to Fig.\ \ref{fig:visit-trpo-individuals}). 
+
+Finally, the rollouts in Fig.\ref{fig:visit-hier-snnBil-1M} and \ref{fig:visit-hier-snnHB-1M} use our hierarchical architecture with a SNN with bilinear integration and $\alpha_H= 0$ and 0.01 respectively. As described in Sec.\ \ref{section:method:highlevel}, the placeholder that during the SNN training received the categorical latent code now receives the one-hot vector output of the Manager Network instead. The exploration obtained with SNNs yields a wider coverage of the space as the underlying policy usually has a larger span of skills. Note how most of the changes of latent code yield a corresponding change in direction. Our simple pre-train setup and the interpretability of the obtained skills are key advantages with respect to previous hierarchical structures. % like seen in \citet{heess2016learning}. %%PA: I am not convinced we should be coming down on the other paper here
 
 \begin{figure}[h!]
 	\centering
@@ -471,7 +350,7 @@ The hierarchical architectures we propose have a direct impact on the areas cove
 		\label{fig:visit-trpo-1M}
 		\includegraphics[trim={0cm 0 0cm 1.2cm}, clip, width = 0.22\textwidth]{Figures/visit-trpo-1M.png}
 	}
-	\subfigure[Hierarchichy with Multi-policy]{
+	\subfigure[Hierarchy with \textit{Multi-policy}]{
 		\centering
 		\label{fig:visit-hier-multi-1M}
 		\includegraphics[trim={2cm 0.7cm 1cm 1.5cm}, clip, width = 0.22\textwidth]{Figures/visit-multi-2.png}
@@ -486,26 +365,16 @@ The hierarchical architectures we propose have a direct impact on the areas cove
 		\label{fig:visit-hier-snnHB-1M}
 		\includegraphics[trim={2cm 0.7cm 1cm 1.5cm}, clip, width = 0.22\textwidth]{Figures/visit-snnMI-1Mbis.png}
 	}
+		\vspace{-8pt}
 	\caption{Visitation plots for different randomly initialized architectures (one rollout of 1M steps). All axis are in scale [-30,30] and we added a zoom for the Gaussian noise to scale [-2,2]}
 	\label{fig:hierarchized-exploration}
 \end{figure}
 
-\subsection{Mazes and Gathering tasks}
-Due to the sparsity of these tasks, none can be solved by standard reinforcement algorithms \citep{duan2016benchmarking}. In Fig.\ \ref{fig:learning-curves} we evaluate the different hierarchical architectures proposed. We also compare them against a stronger baseline: adding to the downstream task the same intrinsic reward that was granted to the robot in the pre-training task. This baseline performs quite poorly in all the mazes, Fig.\ \ref{fig:learn-maze0}-\ref{fig:learn-maze4}. This is due to the long time-horizon needed to reach the goal and the associated credit assignment problem. Furthermore, the intrinsic reward alone does not encourage diversity of actions as the MI bonus for SNN does. 
- The proposed hierarchical architectures are able to learn much faster in every new MDP as they effectively shrink the time-horizon by aggregating time-steps into useful primitives. The benefit of using SNNs with bilinear integration in the hierarchy is also clear over most mazes , although pretraining with MI bonus does not always boosts performance. Observing the learned trajectories that solve the mazes, we realize that the turning or sideway motions (more present in SNNs pretrained with MI) help on maze 0, but are not critical in these tasks because the robot may use a specific forward motion against the wall of the maze to reorient itself. We think that the extra skills will shine more in other tasks requiring more precise navigation. And indeed this is the case in the Gathering task as seen in Fig.\ \ref{fig:learn-gather}, where not only the average return increases, but also the variance of the learning curve is lower for the algorithm using SNN pretrained with MI bonus, denoting a more consistent training across different SNNs. For more details on the Gather task, refer to Appendix \ref{sec:gather_compare}.
+\subsection{Mazes and Gather tasks}
+In Fig.\ \ref{fig:learning-curves} we evaluate the learning curves of the different hierarchical architectures proposed. Due to the sparsity of these tasks, none can be properly solved by standard reinforcement algorithms \citep{duan2016benchmarking}. Therefore, we compare our methods against a better baseline: adding to the downstream task the same Center of Mass (CoM) proxy reward that was granted to the robot in the pre-training task. This baseline performs quite poorly in all the mazes, Fig.\ \ref{fig:learn-maze0}-\ref{fig:learn-maze4}. This is due to the long time-horizon needed to reach the goal and the associated credit assignment problem. Furthermore, the proxy reward alone does not encourage diversity of actions as the MI bonus for SNN does. 
+The proposed hierarchical architectures are able to learn much faster in every new MDP as they effectively shrink the time-horizon by aggregating time-steps into useful primitives. The benefit of using SNNs with bilinear integration in the hierarchy is also clear over most mazes, although pretraining with MI bonus does not always boost performance. Observing the learned trajectories that solve the mazes, we realize that the turning or sideway motions (more present in SNNs pretrained with MI bonus) help on maze 0, but are not critical in these tasks because the robot may use a specific forward motion against the wall of the maze to reorient itself. We think that the extra skills will shine more in other tasks requiring more precise navigation. And indeed this is the case in the Gather task as seen in Fig.\ \ref{fig:learn-gather}, where not only the average return increases, but also the variance of the learning curve is lower for the algorithm using SNN pretrained with MI bonus, denoting a more consistent learning across different SNNs. For more details on the Gather task, refer to Appendix \ref{sec:gather_compare}.
 
-It is important to mention that each curve of SNN or Multi-policy performance corresponds to a total of 10 runs: 2 random seeds for 5 different SNNs obtained with 5 random seeds in the pretrain task. There is no cherry picking of the pre-trained policy to use in the sparse environment. This also explains the high variance of the proposed hierarchical methods in some tasks. This is particularly hard on the mazes as some pretrained SNN may not have the particular motion that allows to reach the goal, so they will have a 0 reward. See Appendix \ref{sec:seed_impact} for more details.
-Note also that the Manager in our hierarchical structure has a discrete action space, so potentially more specialized algorithms could be used, like DQN in \citet{mnih2015human}. This not being the central focus of the paper,we use TRPO for training all policies training. Check Appendix \ \ref{sec:hyper} for the used batch size, maximum path length and other hyperparameters. 
-
-% Due to the sparsity of these tasks, none can be solved by standard reinforcement algorithms \citep{duan2016benchmarking}. In Fig.\ \ref{fig:learning-curves} we evaluate the different hierarchical architectures proposed. We also compare them against a stronger baseline: adding to the downstream task the same intrinsic reward that was granted to the robot in the pre-training task. This baseline performs quite poorly in all the mazes, Fig.\ \ref{fig:learn-maze0}-\ref{fig:learn-maze4}. The hierarchical architectures are able to learn much faster in every new MDP. The benefit of using SNNs with bilinear integration in the hierarchy is also clear over most mazes (not reporting results with non-bilinear SNN), although pre-training with mutual information bonus does not always boosts performance. We think that the extra skills will shine more in other tasks requiring more precise navigation. And indeed this is the case in the Gathering task as seen in Fig.\ \ref{fig:learn-gather}, where not only the average return increases but also the variance of the learning curve shrinks, denoting a more consistent training across different SNNs. 
-
-% It is important to mention that each curve of SNN or Multi-policy performance corresponds to a total of 10 runs: 2 random seeds for 5 different SNNs obtained with 5 random seeds in the pretrain task. There is no cherry picking of the pre-trained policy to use in the sparse environment, so we evaluate the full training complexity (as opposed to other works, like \citet{heess2016learning}, that do not report on the learning difficulty of their pre-train task nor how many random seeds were needed to obtain a good low level controller).
-% %%Rocky2: Not sure if it's necessary to compare with Heess et al. here
-% %%Rocky2: This paragraph reads a bit confusing: what's "full training complexity"?
-% %%Rocky2: Arguing that the discrete action space has an advantage may lead to some questions from the reviewers. I'd just leave this out
-% %%Rocky2: Should have a more explicit quantitative comparison somewhere in the paper about the sample complexity of multi-policy vs. SNNs
-% Note also that the Manager in our hierarchical structure has a discrete action space, so potentially more specialized algorithms could be used, like DQN in \citet{mnih2015human}. This not being the central focus of the paper, so we use TRPO for training all policies training. Check Appendix \ \ref{sec:hyper} for the used batch size, maximum path length and other hyperparameters. 
-% % and Sec.\ \ref{sec:pretrain-learning} for the learning curves of the pre-train environments.
+It is important to mention that each curve of SNN or Multi-policy performance corresponds to a total of 10 runs: 2 random seeds for 5 different SNNs obtained with 5 random seeds in the pretrain task. There is no cherry picking of the pre-trained policy to use in the sparse environment, as done in most previous work. This also explains the high variance of the proposed hierarchical methods in some tasks. This is particularly hard on the mazes as some pretrained SNN may not have the particular motion that allows to reach the goal, so they will have a 0 reward. See Appendix \ref{sec:seed_impact} for more details.
 
 \begin{figure}[h!]
 	\centering
@@ -524,7 +393,7 @@ Note also that the Manager in our hierarchical structure has a discrete action s
 		\label{fig:learn-maze4}
 		\includegraphics[width = 0.4\textwidth]{Figures/learning-Maze4.pdf}
 	}
-	\subfigure[Gathering task]{
+	\subfigure[Gather task]{
 		\centering
 		\label{fig:learn-gather}
 		\includegraphics[width = 0.4\textwidth]{Figures/learn-Gather.pdf}
@@ -534,17 +403,19 @@ Note also that the Manager in our hierarchical structure has a discrete action s
 \end{figure}
 
 \section{Discussion and future work}
-We propose a framework for learning a diverse set of skills using stochastic neural networks with minimum supervision, and utilize these skills in a hierarchical architecture to solve challenging tasks with sparse rewards. Our framework successfully combines two parts, firstly an unsupervised procedure to learn a large span of skills using intrinsic motivation and secondly a hierarchical structure that encapsulates the latter span of skills and allows to re-use them in future tasks. The span of skills learning can be greatly improved by using stochastic neural networks as policies and their additional expressiveness and multimodality. Furthermore, we have studied how to improve the consistency of the learned diversity of behaviors by incorporating both architecture and training modifications that allow the latent variables to have a wider impact on the final policy learned. The bilinear integration and the mutual information bonus are key to yield a wide, interpretable span of skills. As for the hierarchical structure, we demonstrate how drastically it can boost the exploration of an agent in a new environment and we demonstrate its relevance for solving complex tasks as mazes or gathering. 
+We propose a framework for first learning a diverse set of skills using stochastic neural networks trained with minimum supervision, and then utilizing these skills in a hierarchical architecture to solve challenging tasks with sparse rewards. Our framework successfully combines two parts, firstly an unsupervised procedure to learn a large span of skills using proxy rewards and secondly a hierarchical structure that encapsulates the latter span of skills and allows to re-use them in future tasks. The span of skills learning can be greatly improved by using stochastic neural networks as policies and their additional expressiveness and multimodality. The bilinear integration and the mutual information bonus are key to consistently yield a wide, interpretable span of skills. As for the hierarchical structure, our experiments demonstrate it can significantly boost the exploration of an agent in a new environment and we demonstrate its relevance for solving complex tasks as mazes or gathering. 
 
-One limitations of our current approach is the switching between skills for unstable robots, as reported in the Appendix \ref{sec:ant-failure} for the “Ant” robot. There are multiple future directions to make our framework more robust to such challenging robots, like learning a transition policy or integrating switching in the pretrain task. 
-Other limitations of our current approach are having fixed sub-policies and fixed switch time $\mathcal{T}$ during the training of downstream tasks. The first issue can be alleviated by introducing end-to-end training, for example using the new straight-through gradient estimators for Stochastic Computations Graphs with discrete latents \citep{jang2016gumbel, maddison2016concrete}. The second issue is not critical for static tasks like the ones used here, as explained in Appendix \ref{sec:switch_time}. But in case of becoming a bottleneck for more complex dynamic tasks, a termination policy could be learned by the Manager, similar to the option framework.
+One limitation of our current approach is the switching between skills for unstable agents, as reported in the Appendix \ref{sec:ant-failure} for the “Ant” robot. There are multiple future directions to make our framework more robust to such challenging robots, like learning a transition policy or integrating switching in the pretrain task. 
+Other limitations of our current approach are having fixed sub-policies and a fixed switch time $\mathcal{T}$ during the training of downstream tasks. The first issue can be alleviated by introducing end-to-end training, for example using the new straight-through gradient estimators for Stochastic Computations Graphs with discrete latents \citep{jang2016gumbel, maddison2016concrete}. The second issue is not critical for static tasks like the ones used here, as studied in Appendix \ref{sec:switch_time}. But in case of becoming a bottleneck for more complex dynamic tasks, a termination policy could be learned by the Manager, similar to the option framework.
 Finally, we only used feedforward architectures and hence the decision of what skill to use next only depends on the observation at the moment of switching, not using any sensory information gathered while the previous skill was active. This limitation could be eliminated by introducing a recurrent architecture at the Manager level.
 
-% \subsubsection*{Acknowledgments}
-% This work was supported in part by DARPA, the Berkeley Vision and Learning Center (BVLC), the Berkeley Artificial Intelligence Research (BAIR) laboratory, and Berkeley Deep Drive (BDD). This research was funded in part by ONR through a PECASE award. Carlos Florensa was also supported by the Ph.D. Fellowship of La Caixa - Spain. Yan Duan was also supported by a Berkeley AI Research lab Fellowship and a Huawei Fellowship.
+\subsubsection*{Acknowledgments}
+This work was supported in part by DARPA, by the Berkeley Vision and Learning Center (BVLC), by the Berkeley Artificial Intelligence Research (BAIR) laboratory, by Berkeley Deep Drive (BDD), and by ONR through a PECASE award. Carlos Florensa was also supported by a La Caixa Ph.D. Fellowship, and Yan Duan by a BAIR Fellowship and a Huawei Fellowship.
 
 \bibliography{ref}
 \bibliographystyle{iclr2017_conference}
+
+%%PA: check for cited papers whether they need to be updated [i.e. now accepted somewhere -> in addition to arxiv info, also add the publication venue info]
 
 \appendix
 \section{Hyperparameters}
@@ -632,9 +503,9 @@ The Snake robot can learn a large span of skills as consistently as Swimmer. We 
 	\label{fig:visitation-snn-egoSnake}
 \end{figure}
 
-\subsection{Hierarchical use of skills in maze and gathering}
+\subsection{Hierarchical use of skills in Maze and Gather}
 \label{sec:snake-hierarchy}
-Here we evaluate the performance of our hierarchical architecture to solve with Snake the sparse tasks Maze 0 and Gather from Sec.\ \ref{sec:experiments}. Given the larger size of the robot, we have also increased the size of the Maze and the Gather task, from 2 to 7 and from 6 to 10 respectively. The maximum path length is also increased in the same proportion, but not the batch size nor the switch time $\mathcal{T}$ (see Sec.\ \ref{sec:switch_time} for an analysis on $\mathcal{T}$). Despite the tasks being harder, our approach still achieves good results, and Figs.\ \ref{fig:egoSnake-maze0}-\ref{fig:egoSnake-gather}, clearly shows how it beats the baseline of having the intrinsic motivation of the Center of Mass in the hierarchical task.
+Here we evaluate the performance of our hierarchical architecture to solve with Snake the sparse tasks Maze 0 and Gather from Sec.\ \ref{sec:experiments}. Given the larger size of the robot, we have also increased the size of the Maze and the Gather task, from 2 to 7 and from 6 to 10 respectively. The maximum path length is also increased in the same proportion, but not the batch size nor the switch time $\mathcal{T}$ (see Sec.\ \ref{sec:switch_time} for an analysis on $\mathcal{T}$). Despite the tasks being harder, our approach still achieves good results, and Figs.\ \ref{fig:egoSnake-maze0}-\ref{fig:egoSnake-gather}, clearly shows how it outperforms the baseline of having the intrinsic motivation of the Center of Mass in the hierarchical task.
 
 \begin{figure}[h!]
 	\centering
@@ -643,7 +514,7 @@ Here we evaluate the performance of our hierarchical architecture to solve with 
 		\label{fig:egoSnake-maze0}
 		\includegraphics[width = 0.45\textwidth]{Figures/egoSnake-maze0-scaling7-agg500.png}
 	}
-	\subfigure[Gathering task with Snake]{
+	\subfigure[Gather task with Snake]{
 		\centering
 		\label{fig:egoSnake-gather}
 		\includegraphics[width = 0.45\textwidth]{Figures/egoSnake-gather-range10-agg10.png}
@@ -654,7 +525,9 @@ Here we evaluate the performance of our hierarchical architecture to solve with 
 
 \subsection{Analysis of the switch time $\mathcal{T}$}
 \label{sec:switch_time}
-The switch time $\mathcal{T}$ does not critically affect the performance for these static tasks, where the robot is not required to react fast and precisely to changes in the environment. The performance of different $\mathcal{T}$ is reported for the Gather task of sizes 10 and 15 in Figs.\ \ref{fig:egoSnake-gather-range10-switch}-\ref{fig:egoSnake-gather-range15-switch}. As expected, we see that for the smaller environment, shorter switch time is better and that for larger one, longer commitments help getting higher scores. For the Maze 0 task, Figs.\ \ref{fig:egoSnake-maze-range7-switch}-\ref{fig:egoSnake-maze-range9-switch} show that the difference between different $\mathcal{T}$ is important but not critical. The large variances observed are due to the performance of the different pretrained SNN. This is further studied in Sec.\ \ref{sec:seed_impact}.
+The switch time $\mathcal{T}$ does not critically affect the performance for these static tasks, where the robot is not required to react fast and precisely to changes in the environment. The performance of very different $\mathcal{T}$ is reported for the Gather task of sizes 10 and 15 in Figs.\ \ref{fig:egoSnake-gather-range10-switch}-\ref{fig:egoSnake-gather-range15-switch}. A smaller environment implies having red/green balls closer to each other, and hence more precise navigation is expected to achieve higher scores. In our framework, lower switch time $\mathcal{T}$ allows faster changes between skills, therefore explaining the slightly better performance of $\mathcal{T}=10$ or 50 over 100 for the Gather task of size 10 (Fig.\ \ref{fig:egoSnake-gather-range10-switch}). On the other hand, larger environments mean more sparcity as the same number of balls is uniformly initialized in a wider space. In such case, longer commitment to every skill is expected to improve the exploration range. This explains the slower learning of $\mathcal{T}=10$ in the Gather task of size 15 (Fig.\ \ref{fig:egoSnake-gather-range15-switch}). It is still surprising the mild changes produced by such large variations in the switch time $\mathcal{T}$ for the Gather task.
+
+For the Maze 0 task, Figs.\ \ref{fig:egoSnake-maze-range7-switch}-\ref{fig:egoSnake-maze-range9-switch} show that the difference between different $\mathcal{T}$ is important but not critical. In particular, radical increases of $\mathcal{T}$ have little effect on the performance in this task because the robot will simply keep bumping against a wall until it switches latent. This behavior is observed in the videos attached with the paper\textsuperscript{\ref{foot:video}}. The large variances observed are due to the performance of the different pretrained SNN. This is further studied in Sec.\ \ref{sec:seed_impact}.
 
 \begin{figure}[h!]
 	\centering
@@ -678,22 +551,23 @@ The switch time $\mathcal{T}$ does not critically affect the performance for the
 		\label{fig:egoSnake-maze-range9-switch}
 		\includegraphics[trim={0cm 0cm 0cm 1.5cm}, clip, width = 0.4\textwidth]{Figures/egoSnake-maze-range9-switch.png}
 	}
+    \vspace{-10pt}    
 	\caption{Mild effect of switch time $\mathcal{T}$ on different sizes of Gather and Maze 0}
 	\label{fig:egoSnake-learning-curves-switch}
 \end{figure}
 
 \subsection{Impact of the pre-trained SNN on the hierarchy}
 \label{sec:seed_impact}
-In the previous section, the low variance of the learning curves for Gather indicate that all pretrained SNN preform equally good in this task. For Maze, the performance depends strongly on the pretrained SNN. For example we observe that the one obtained with the random seed 50 has a visitation (Fig.\ \ref{fig:visit-snn-snake-50}) with a weak backward span, which happens to be critical to solve the Maze 0. This explains the lack of learning in Fig.\ \ref{fig:egoSnake-maze0-switch500-pkl} for this particular pretrained SNN. Note that the large variability between different random seeds is even worse in the baseline of having the CoM reward in the Maze, as seen in Fig.\ \ref{fig:egoSnake-maze0-TRPO-seeds}. 3 out of 5 seeds never reach the goal and the ones that does have an unstable learning due to the the long time-horizon.
+In the previous section, the low variance of the learning curves for Gather indicates that all pretrained SNN preform equally good in this task. For Maze, the performance depends strongly on the pretrained SNN. For example we observe that the one obtained with the random seed 50 has a visitation with a weak backward span (Fig.\ \ref{fig:visit-snn-snake-50}), which happens to be critical to solve the Maze 0 (as can be seen in the videos\textsuperscript{\ref{foot:video}}). This explains the lack of learning in Fig.\ \ref{fig:egoSnake-maze0-switch500-pkl} for this particular pretrained SNN. Note that the large variability between different random seeds is even worse in the baseline of having the CoM reward in the Maze, as seen in Fig.\ \ref{fig:egoSnake-maze0-TRPO-seeds}. 3 out of 5 seeds never reach the goal and the ones that does have an unstable learning due to the long time-horizon.
 
 \begin{figure}[h]
 	\centering
-	\subfigure[Maze 0 with Snake and switch time $\mathcal{T}=500$]{
+	\subfigure[Snake on Maze 0 of size 7 and switch-time $\mathcal{T}=500$]{
 		\centering
 		\label{fig:egoSnake-maze0-switch500-pkl}
 		\includegraphics[trim={0cm 0cm 0cm 1.5cm}, clip, width = 0.45\textwidth]{Figures/egoSnake-maze0-range7-agg500-pklSplit.png}
 	}
-	\subfigure[ Snake on Maze 0 trained with TRPO with CoM reward]{
+	\subfigure[Snake on Maze 0 of size 7 trained with TRPO and CoM reward]{
 		\centering
 		\label{fig:egoSnake-maze0-TRPO-seeds}
 		\includegraphics[trim={0cm 0cm 0cm 1.5cm}, clip, width = 0.45\textwidth]{Figures/egoSnake-Maze0-scaling9-TRPO-allSeeds.png}
@@ -703,16 +577,25 @@ In the previous section, the low variance of the learning curves for Gather indi
 % 		\label{fig:egoSnake-maze0-switch800-pkl}
 % 		\includegraphics[trim={0cm 0cm 0cm 1.5cm}, clip, width = 0.45\textwidth]{Figures/egoSnake-maze0-range7-agg800-pklSplit.png}
 % 	}
-	\caption{Variation in performance among different pretrained SNNs for Maze0 (size 7)}
+    \vspace{-10pt}         
+	\caption{Variation in performance among different pretrained SNNs and different TRPO seeds}
 	\label{fig:egoSnake-learning-curves-pkl}
 \end{figure}
 
 \section{Ant}
 \label{sec:ant}
-In this section we report the progress and failure modes of our approach when dealing with more challenging and unstable robots, like Ant (described in \cite{duan2016benchmarking}). 
+\begin{wrapfigure}{r}{2.5cm}
+\vspace{-40pt}
+\includegraphics[trim={0cm 2cm 1cm 2.5cm}, clip, width = 2.5cm]{Figures/ant.png}
+\vspace{-20pt}
+\caption{Ant}
+\label{fig:ant}
+\end{wrapfigure}
+
+In this section we report the progress and failure modes of our approach with more challenging and unstable robots, like Ant (described in \cite{duan2016benchmarking}). This agent has a 27-dimensional space and an 8-dimensional action space. It is unstable in the sense that it might fall over and cannot recover. We show that despite being able to learn well differentiated skills with SNNs, switching between skills is a hard task because of the instability.
 
 \subsection{Sill learning in pretrain}
-The pretraining part is still able to yield large span of skills covering most directions, as long as the MI bonus is well tuned, as observed in Fig.\ \ref{fig:ant-pretrain}.
+Our SNN pretraining step is still able to yield large span of skills covering most directions, as long as the MI bonus is well tuned, as observed in Fig.\ \ref{fig:ant-pretrain}. Videos comparing all the different gaits can be observed in the attached videos\textsuperscript{\ref{foot:video}}.
 
 \begin{figure}[h]
     \centering

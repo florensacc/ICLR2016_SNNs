@@ -13,6 +13,9 @@
 \usepackage{dsfont}
 \usepackage{enumitem}
 
+% For algorithms
+\usepackage[algo2e, ruled]{algorithm2e}
+
 \usepackage[center]{subfigure}
 \newcommand{\R}{\mathbb{R}}
 \renewcommand{\S}{\mathcal{S}}
@@ -191,23 +194,21 @@ After training, each of the latent code in the categorical distribution will cor
 \subsection{Information-Theoretic Regularization}
 \label{section:method:inforeg}
 
-Although SNNs have sufficient expressiveness to represent multi-modal policies, there is nothing in the optimization that prevents them from collapsing into a single mode. We have not observed this worst case scenario in our experiments, but sometimes different latent codes correspond to very similar skills. It is desirable to have direct control over the diversity of skills that will be learned. To achieve this, we introduce an information-theoretic regularizer, inspired by recent success of similar objectives in encouraging interpretable representation learning in GANs (and in particular InfoGAN, \citet{chen2016infogan}).
+Although SNNs have sufficient expressiveness to represent multi-modal policies, there is nothing in the optimization that prevents them from collapsing into a single mode. We have not observed this worst case scenario in our experiments, but sometimes different latent codes correspond to very similar skills. It is desirable to have direct control over the diversity of skills that will be learned. To achieve this, we introduce an information-theoretic regularizer, inspired by recent success of similar objectives in encouraging interpretable representation learning in InfoGAN \cite{chen2016infogan}.
 
-We design this objective specifically for mobile robots, although in principle it can be also generalized to other contexts.
-Concretely, we add an additional reward bonus, proportional to the mutual information (MI) between the latent variable and the state it is currently in. We only measure the MI with respect to a relevant subset of the state.
-For a mobile robot, we choose this to be the coordinates of its center of mass. We further partition the $(x,y)$ coordinate space into discrete grids, and map the continuous-valued coordinate into the closest grid. This way, calculation of empirical MI only requires maintaining visitation counts of the latent variables in each grid.
+Concretely, we add an additional reward bonus, proportional to the mutual information (MI) between the latent variable and the current state. We only measure the MI with respect to a relevant subset of the state.
+For a mobile robot, we choose this to be the $(x,y)$ coordinates of its center of mass (CoM). 
+Formally, let $X$ be a random variable denoting the current CoM coordinate of the agent, and let $Z$ be the latent variable. Our additional reward bonus is $\alpha_H I(Z;X) = \alpha_H (H(Z) - H(Z|X))$, where $H$ denotes the entropy function. In our case, $H(Z)$ is constant since the probability distribution of the latent variable is fixed to uniform during this stage of training. Hence, maximizing MI is equivalent to minimizing the conditional entropy $H(Z|X)$. Therefore, another interpretation of this bonus is that given where the robot is, it should be easy to infer  which skill the robot is currently performing. 
 
-Mathematically, let $X$ be a random variable denoting the grid in which the agent is currently situated, and let $Z$ be a random variable for the latent variable. Our additional reward bonus is $\alpha_H I(Z;X) = \alpha_H (H(Z) - H(Z|X))$, where $H$ denotes the entropy function. In our case, $H(Z)$ is constant since the distribution of the latent variable is fixed, and hence maximizing MI is equivalent to minimizing the conditional entropy. Therefore, another interpretation of this bonus is that given where the robot is, it should be easy to infer  which
-skill the robot is currently performing. 
+To estimate the MI we need to estimate the posterior probability of the latent code given the state. This can be done by fitting a MLP regressor by Maximum Likelihood, but we found as effective and more efficient to apply the following discretization: we partition the $(x,y)$ coordinate space into cells $c\in\{0,1,\dots,C\}$, and map the continuous-valued CoM coordinate into the cell containing it. This way, calculation of empirical MI only requires maintaining visitation counts $n_c(z)$ of each latent code $z$ in each cell $c$, yielding:
+\begin{align}
+    \hat{p}(Z=z|X)\approx\hat{p}(Z=z|c)=\frac{n_c(z)}{\sum_{z'}n_c(z')}
+\end{align}
+Given that we use a batch policy optimization method, we use all trajectories of the current batch to compute the $n_c(z)$. Then, for every point (with CoM in cell $c_t$) in every trajectory with latent $z$, we modify the reward by adding:
+\begin{align}
+    \alpha_H~ \log\hat{p}(Z=z|c_t)
+\end{align}
 
-%%PA: add paragraph about how the mutual information is computed in practice
-
-
-% involves simple reduces , which is a very weak form of We preserve visitation frequency of the mobile robot over a grid partition of the coordinate space, where the resolution of the grid is a hyperparameter. The intuition behind this bonus is that different values of the latent variable should induce different visitation patterns, which in turn corresponds to different skills. Formally, let $q$ be coordinates of a single grid, and let $h$ be a latent variable. %a variable representing a %will encourage different skills to be learned.
-
-% discretized 
-
-% To further encourage the diversity of skills learned while training a SNN we introduce an information-theoretic based intrinsic reward. If many latents produce a motion of the robot towards the same region, it will be hard to infer what was the latent sampled at the beginning of the trajectory. Hence we can give a reward to every state based on how easily the latent is inferred. Formally we use the trajectories from the batch (and their latent) to obtain an empirical estimate of the posterior distribution $p(h|s)$ over latents given a state. Then the reward obtained in any sampled state $s_t$ is modified by $-\alpha_H H(p(h|s_t))$, where $\alpha_H$ is an hyperparameter that modulates the weight of this bonus. In parctice, this computation can be done very efficiently by gridding the space and counting the number of times each latent visited each grid. \textit{introduce the grid meshing hyperparameter here?}. Then the posterior $p(h_i|s_t)$ is simply taken as the ration of frequencies between the number of times states belonging to trajectories with latent $h_i$ visited the cell $n_h$ and total visitations of the cell $n_T$. Then the reward becomes $-\log(\frac{n_h}{n_T})$. \textit{Review this, specify better that the state is associated to the cell, and then put super-scripts to the $n$s}
 
 \subsection{Learning High-level Policies}
 \label{section:method:highlevel}
@@ -230,7 +231,23 @@ We freeze the weights of the SNN during this phase of training. In principle, th
 \subsection{Policy Optimization}
 \label{section:method:polopt}
 
-For both the pre-training phase and the training of the high-level policies, we use Trust Region Policy Optimization (TRPO) as the policy optimization algorithm \citep{Schulman15TRPO}. We choose TRPO due to its excellent empirical performance and because it does not require excessive hyperparameter tuning. For the pre-training phase, the training of policies is complicated by the fact that due to the presence of latent variables, the marginal distribution of $\pi(a|s)$ is now a mixture of Gaussians instead of a simple Gaussian, and it may even become intractable to compute if we use more expressive latent variables. This also complicates the computation of KL divergence, which is needed to control the step size of the policy update. In our implementation, we hold the latent variable as fixed in the optimization phase, and compute $\pi(a|s,z)$, where $z$ is the latent variable, without marginalizing over $z$. The rest of the TRPO procedure can then be straightforwardly applied. 
+For both the pre-training phase and the training of the high-level policies, we use Trust Region Policy Optimization (TRPO) as the policy optimization algorithm \citep{Schulman15TRPO}. We choose TRPO due to its excellent empirical performance and because it does not require excessive hyperparameter tuning. For the pre-training phase, the training of policies is complicated by the fact that due to the presence of latent variables, the marginal distribution of $\pi(a|s)$ is now a mixture of Gaussians instead of a simple Gaussian, and it may even become intractable to compute if we use more expressive latent variables. This also complicates the computation of KL divergence, which is needed to control the step size of the policy update. In our implementation, we hold the latent variable $z$ fixed in the optimization phase, and compute $\pi(a|s,z)$, without marginalizing over $z$. The rest of the TRPO procedure can then be straightforwardly applied.
+
+\begin{algorithm2e}[H]
+\SetAlgoLined
+ \SetKwInOut{Input}{Input}
+ \SetKwInOut{Output}{Output}
+ \textbf{Initialize: }{Policy $\pi_{\theta}$; Latent dimension $K$}\;
+ \While{Not trained}{
+     \For{$n \leftarrow \ 1$ \KwTo $N$}{
+        Sample $z_n\sim \text{Cat}\big(\frac{1}{K}\big)$\;
+        Collect rollout with $z_n$ fixed\;
+     }
+     TRPO pdate $\theta$ with $\nabla_{\theta}\eta\approx\sum_n\sum_t\nabla_\theta\log\pi_\theta(a_t| s_t, z_t) \sum_{t'=t}\big(R_{t'}+\log\hat{p}(Z=z_n|s_t)\big)$
+ }
+ \caption{Skill training for SNNs}
+ \label{alg:overall}
+\end{algorithm2e}
 
 
 \section{Experiments}
@@ -328,7 +345,6 @@ of advancing, hence granting a potentially useful skills to solve downstream tas
 Next we show that, using SNNs, we can learn a similar or even larger span of skills without training several independent policies. The number of samples used to train a SNN is the same as a single feed-forward policy from Fig.\ \ref{fig:visit-trpo-individuals}, therefore this method of learning skills effectively reduces the sample complexity by a factor equal to the numbers of skills being learned. With an adequate architecture and MI bonus, we show that the span of skills generated is also richer.   
 In the two rows of Figs.\ \ref{fig:visit_snn6_noBilinear}-\ref{fig:visit_snn6_bilinear} we present the visitation plots of SNNs policies obtained for different design choices. Now the colors indicate the latent code that was sampled at the beginning of the rollout. We observe that each latent code generates a particular, interpretable behavior. Given that the initialization orientation is always the same, the different skills are truly distinct ways of moving: forward, backwards, or sideways. In the following we analyze the impact on the span of skills of the integration of latent variables (concatenation in first row and bilinear in the second) and the MI bonus (increasing coeficient $\alpha_H$ towards the right). Simple concatenation of latent variables with the observations rarely yields distinctive behaviors for each latent code sampled. On the other hand, we have observed that 80\% of the trained SNNs with bilinear integration acquire at least forward and backward motion associated with different latent codes. This can be further improved to 100\% by increasing $\alpha_H$ and we also observe that the MI bonus yields less overlapped skills and new advancing/turning skills, independently of the integration of the latent variables.
 
-
 % put learning curves of the pre-train task in the appendix!!
 
 \subsection{Hierarchical use of skills}
@@ -406,7 +422,7 @@ It is important to mention that each curve of SNN or Multi-policy performance co
 We propose a framework for first learning a diverse set of skills using stochastic neural networks trained with minimum supervision, and then utilizing these skills in a hierarchical architecture to solve challenging tasks with sparse rewards. Our framework successfully combines two parts, firstly an unsupervised procedure to learn a large span of skills using proxy rewards and secondly a hierarchical structure that encapsulates the latter span of skills and allows to re-use them in future tasks. The span of skills learning can be greatly improved by using stochastic neural networks as policies and their additional expressiveness and multimodality. The bilinear integration and the mutual information bonus are key to consistently yield a wide, interpretable span of skills. As for the hierarchical structure, our experiments demonstrate it can significantly boost the exploration of an agent in a new environment and we demonstrate its relevance for solving complex tasks as mazes or gathering. 
 
 One limitation of our current approach is the switching between skills for unstable agents, as reported in the Appendix \ref{sec:ant-failure} for the “Ant” robot. There are multiple future directions to make our framework more robust to such challenging robots, like learning a transition policy or integrating switching in the pretrain task. 
-Other limitations of our current approach are having fixed sub-policies and a fixed switch time $\mathcal{T}$ during the training of downstream tasks. The first issue can be alleviated by introducing end-to-end training, for example using the new straight-through gradient estimators for Stochastic Computations Graphs with discrete latents \citep{jang2016gumbel, maddison2016concrete}. The second issue is not critical for static tasks like the ones used here, as studied in Appendix \ref{sec:switch_time}. But in case of becoming a bottleneck for more complex dynamic tasks, a termination policy could be learned by the Manager, similar to the option framework.
+Other limitations of our current approach are having fixed sub-policies and a fixed switch time $\mathcal{T}$ during the training of downstream tasks. The first issue can be alleviated by introducing end-to-end training, for example using the new straight-through gradient estimators for Stochastic Computations Graphs with discrete latent variables \citep{jang2016gumbel, maddison2016concrete}. The second issue is not critical for static tasks like the ones used here, as studied in Appendix \ref{sec:switch_time}. But in case of becoming a bottleneck for more complex dynamic tasks, a termination policy could be learned by the Manager, similar to the option framework.
 Finally, we only used feedforward architectures and hence the decision of what skill to use next only depends on the observation at the moment of switching, not using any sensory information gathered while the previous skill was active. This limitation could be eliminated by introducing a recurrent architecture at the Manager level.
 
 \subsubsection*{Acknowledgments}
@@ -415,12 +431,10 @@ This work was supported in part by DARPA, by the Berkeley Vision and Learning Ce
 \bibliography{ref}
 \bibliographystyle{iclr2017_conference}
 
-%%PA: check for cited papers whether they need to be updated [i.e. now accepted somewhere -> in addition to arxiv info, also add the publication venue info]
-
 \appendix
 \section{Hyperparameters}
 \label{sec:hyper}
-All policies are trained with TRPO with step size $0.01$ and discount $0.99$. All neural networks (each of the Multi-policy ones, the SNN and the Manager Network) have 2 layers of 32 hidden units. For the SNN training, the mesh density used to grid the $(x, y)$ space and give the MI bonus is 10 divisions/unit. The number of skills trained (ie number of latents in the SNN or number of independently trained policies in the Mulit-policy setup) is 6. The batch size and the maximum path length for the pre-train task are also the ones used in the benchmark \citep{duan2016benchmarking}: 50,000 and 500 respectively. For the downstream tasks, see Tab.\ \ref{tab:params}.
+All policies are trained with TRPO with step size $0.01$ and discount $0.99$. All neural networks (each of the Multi-policy ones, the SNN and the Manager Network) have 2 layers of 32 hidden units. For the SNN training, the mesh density used to grid the $(x, y)$ space and give the MI bonus is 10 divisions/unit. The number of skills trained (ie dimension of latent variable in the SNN or number of independently trained policies in the Mulit-policy setup) is 6. The batch size and the maximum path length for the pre-train task are also the ones used in the benchmark \citep{duan2016benchmarking}: 50,000 and 500 respectively. For the downstream tasks, see Tab.\ \ref{tab:params}.
 
 \begin{table}[h!]
 \centering
@@ -431,11 +445,10 @@ Batch size & 1M & 100k \\
 Maximum path length & 10k & 5k \\
 Switch time $\mathcal{T}$ & 500 & 10
 \end{tabular}
-\caption{Parameters of algorithms for downstream tasks}
+\caption{Parameters of algorithms for downstream tasks, measured in number of time-steps of the low level control}
 \label{tab:params}
 \end{table}
 
-%%Rocky2: Should be made clear that the batch size in the table means the number of samples as measured by the low-level policy. Would it be better to just present the number of samples as measured by the high-level policy though?
 
 \section{Results for Gather with Benchmark settings}
 \label{sec:gather_compare}
@@ -527,7 +540,7 @@ Here we evaluate the performance of our hierarchical architecture to solve with 
 \label{sec:switch_time}
 The switch time $\mathcal{T}$ does not critically affect the performance for these static tasks, where the robot is not required to react fast and precisely to changes in the environment. The performance of very different $\mathcal{T}$ is reported for the Gather task of sizes 10 and 15 in Figs.\ \ref{fig:egoSnake-gather-range10-switch}-\ref{fig:egoSnake-gather-range15-switch}. A smaller environment implies having red/green balls closer to each other, and hence more precise navigation is expected to achieve higher scores. In our framework, lower switch time $\mathcal{T}$ allows faster changes between skills, therefore explaining the slightly better performance of $\mathcal{T}=10$ or 50 over 100 for the Gather task of size 10 (Fig.\ \ref{fig:egoSnake-gather-range10-switch}). On the other hand, larger environments mean more sparcity as the same number of balls is uniformly initialized in a wider space. In such case, longer commitment to every skill is expected to improve the exploration range. This explains the slower learning of $\mathcal{T}=10$ in the Gather task of size 15 (Fig.\ \ref{fig:egoSnake-gather-range15-switch}). It is still surprising the mild changes produced by such large variations in the switch time $\mathcal{T}$ for the Gather task.
 
-For the Maze 0 task, Figs.\ \ref{fig:egoSnake-maze-range7-switch}-\ref{fig:egoSnake-maze-range9-switch} show that the difference between different $\mathcal{T}$ is important but not critical. In particular, radical increases of $\mathcal{T}$ have little effect on the performance in this task because the robot will simply keep bumping against a wall until it switches latent. This behavior is observed in the videos attached with the paper\textsuperscript{\ref{foot:video}}. The large variances observed are due to the performance of the different pretrained SNN. This is further studied in Sec.\ \ref{sec:seed_impact}.
+For the Maze 0 task, Figs.\ \ref{fig:egoSnake-maze-range7-switch}-\ref{fig:egoSnake-maze-range9-switch} show that the difference between different $\mathcal{T}$ is important but not critical. In particular, radical increases of $\mathcal{T}$ have little effect on the performance in this task because the robot will simply keep bumping against a wall until it switches latent code. This behavior is observed in the videos attached with the paper\textsuperscript{\ref{foot:video}}. The large variances observed are due to the performance of the different pretrained SNN. This is further studied in Sec.\ \ref{sec:seed_impact}.
 
 \begin{figure}[h!]
 	\centering
